@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useWeb3 } from "../context/Web3Context";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import {
   Heart,
   User,
@@ -18,9 +20,12 @@ import {
   Share2,
   Lock,
   ImageIcon,
-  FileText,
+  Sparkles,
+  MessageCircle,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import MedicationSummaryDisplay from "@/components/Summary";
+import toast from "react-hot-toast";
 
 // interface Report {
 //   _id: string;
@@ -34,6 +39,13 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 //   diagnosisSummary: string;
 //   reasonOfCheckup: string;
 //   prescription: string;
+//   medicines : [{
+//     name: string;
+//     dose: string;
+//     frequency: string;
+//     quantity : string;,
+//     timing : string[]; // ['morning', 'afternoon', 'evening', 'night']
+//     }]
 //   owner: {
 //     name: string,
 //     email: string,
@@ -44,8 +56,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 const ReportInDetail = () => {
   const [report, setReport] = useState(null);
   const [ipfsUrl, setIpfsUrl] = useState(null);
+  const [summaryResult, setSummaryResult] = useState([]);
+  const [loading, setLoading] = useState(false);
   const { id } = useParams();
   const { contractInstance, connectWallet } = useWeb3();
+  const navigateTo = useNavigate();
 
   const fetchReport = async () => {
     try {
@@ -110,6 +125,28 @@ const ReportInDetail = () => {
     });
   };
 
+  const handleGetSummary = async () => {
+    try {
+      setLoading(true);
+
+      console.log("reporrtID : ", report._id);
+
+      const response = await axios.get(
+        `http://localhost:5000/api/user/report-summary?reportId=${report._id}`,
+        {
+          withCredentials: true,
+        }
+      );
+
+      setSummaryResult(response.data.summary);
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("Failed to extract summary. Please try again.", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!report) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
@@ -135,7 +172,6 @@ const ReportInDetail = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Animated Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-4 -right-4 w-72 h-72 bg-gradient-to-br from-blue-400/10 to-purple-400/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-4 -left-4 w-96 h-96 bg-gradient-to-tr from-teal-400/10 to-blue-400/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
@@ -147,7 +183,7 @@ const ReportInDetail = () => {
         <div className="relative mx-auto px-4 sm:px-6 lg:px-8 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center  space-x-4">
-              <button className="group p-3 bg-black/10 backdrop-blur-sm rounded-xl border border-black/20 hover:bg-black/20 transition-all duration-300">
+              <button className="group p-3 cursor-pointer bg-black/10 backdrop-blur-sm rounded-xl border border-black/20 hover:bg-black/20 transition-all duration-300">
                 <ChevronLeft className="w-6 h-6 text-black group-hover:text-blue-100" />
               </button>
             </div>
@@ -173,7 +209,7 @@ const ReportInDetail = () => {
                 )}
               </div>
 
-              <button className="group p-3 bg-black/10 backdrop-blur-sm rounded-xl border border-black/20 hover:bg-black/20 transition-all duration-300">
+              <button className="group p-3 cursor-pointer bg-black/10 backdrop-blur-sm rounded-xl border border-black/20 hover:bg-black/20 transition-all duration-300">
                 <Share2 className="w-5 h-5 text-black group-hover:text-blue-100" />
               </button>
             </div>
@@ -181,12 +217,9 @@ const ReportInDetail = () => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Patient Info */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Patient Card */}
             <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
               <div className="bg-gradient-to-r from-blue-500 to-purple-500 px-6 py-4">
                 <h2 className="text-lg font-semibold text-white flex items-center space-x-2">
@@ -241,7 +274,6 @@ const ReportInDetail = () => {
               </div>
             </div>
 
-            {/* Owner Info */}
             <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
               <div className="bg-gradient-to-r from-teal-500 to-blue-500 px-6 py-4">
                 <h2 className="text-lg font-semibold text-white flex items-center space-x-2">
@@ -283,19 +315,26 @@ const ReportInDetail = () => {
 
               <div className="space-y-3">
                 {(report.reportFileUrl || ipfsUrl) && (
-                  <a
-                    href={report.reportFileUrl || ipfsUrl}
-                    download
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={async () => {
+                      const fileUrl = report.reportFileUrl || ipfsUrl;
+                      const response = await fetch(fileUrl, { mode: "cors" });
+                      const blob = await response.blob();
+
+                      const link = document.createElement("a");
+                      link.href = window.URL.createObjectURL(blob);
+                      link.download = fileUrl.split("/").pop() || "report.png"; // 🧠 dynamic
+                      document.body.appendChild(link);
+                      link.click();
+                      link.remove();
+                    }}
                     className="w-full flex items-center justify-center space-x-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white py-3 px-4 rounded-xl font-medium hover:from-blue-600 hover:to-purple-600 transition-all duration-300 shadow-lg hover:shadow-blue-500/25"
                   >
                     <Download className="w-5 h-5" />
                     <span>Download Report</span>
-                  </a>
+                  </button>
                 )}
 
-                {/* View on Blockchain */}
                 {report.type === "web3" && report.blockchainTxHash && (
                   <a
                     href={`https://sepolia.etherscan.io/tx/${report.blockchainTxHash}`}
@@ -307,6 +346,13 @@ const ReportInDetail = () => {
                     <span>View on Blockchain</span>
                   </a>
                 )}
+                <button
+                  onClick={() => navigateTo(`/reports/${report._id}/ask`)}
+                  className="w-full cursor-pointer flex items-center justify-center space-x-3 bg-gradient-to-r from-pink-500 to-red-500 text-white py-3 px-4 rounded-xl font-medium hover:from-pink-600 hover:to-red-600 transition-all duration-300 shadow-lg hover:shadow-pink-500/25"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  <span>Want to Ask Something?</span>
+                </button>
               </div>
             </div>
           </div>
@@ -329,7 +375,6 @@ const ReportInDetail = () => {
                 </div>
               </div>
             </div>
-
             {/* Reason for Checkup */}
             <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
               <div className="bg-gradient-to-r from-yellow-500 to-orange-500 px-6 py-4">
@@ -346,7 +391,6 @@ const ReportInDetail = () => {
                 </div>
               </div>
             </div>
-
             {/* Prescription */}
             <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
               <div className="bg-gradient-to-r from-green-500 to-emerald-500 px-6 py-4">
@@ -363,7 +407,6 @@ const ReportInDetail = () => {
                 </div>
               </div>
             </div>
-
             <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm hover:shadow-2xl transition-all duration-300">
               <CardHeader className="bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-t-lg">
                 <CardTitle className="flex items-center gap-3 text-xl">
@@ -371,6 +414,7 @@ const ReportInDetail = () => {
                   Medical Report File
                 </CardTitle>
               </CardHeader>
+
               <CardContent className="p-6">
                 <div className="text-center">
                   {report.type === "web2" ? (
@@ -380,7 +424,7 @@ const ReportInDetail = () => {
                         alt="Medical Report"
                         className="max-w-full h-auto rounded-lg shadow-lg border-4 border-white mx-auto transition-transform duration-300 group-hover:scale-105"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg"></div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg" />
                     </div>
                   ) : ipfsUrl ? (
                     <div className="relative group">
@@ -389,7 +433,7 @@ const ReportInDetail = () => {
                         alt="IPFS Medical Report"
                         className="max-w-full h-auto rounded-lg shadow-lg border-4 border-white mx-auto transition-transform duration-300 group-hover:scale-105"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg"></div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg" />
                       <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
                         IPFS Secured
                       </div>
@@ -397,7 +441,7 @@ const ReportInDetail = () => {
                   ) : (
                     <div className="flex items-center justify-center py-12">
                       <div className="text-center space-y-3">
-                        <div className="w-12 h-12 border-3 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto"></div>
+                        <div className="w-12 h-12 border-3 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto" />
                         <p className="text-gray-600 font-medium">
                           Loading IPFS data...
                         </p>
@@ -411,7 +455,6 @@ const ReportInDetail = () => {
               </CardContent>
             </Card>
 
-            {/* Technical Details */}
             {report.type === "web3" && (
               <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
                 <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-6 py-4">
@@ -452,6 +495,99 @@ const ReportInDetail = () => {
             )}
           </div>
         </div>
+
+        {report.medicines && report.medicines.length > 0 && (
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 overflow-hidden mt-6">
+            <div className="bg-gradient-to-r flex justify-between from-cyan-500 to-blue-500 px-6 py-4">
+              <h2 className="text-lg font-semibold text-white flex items-center space-x-2">
+                <Pill className="w-5 h-5" />
+                <span>Prescribed Medicines</span>
+              </h2>
+              <div className="mt-6">
+                <button
+                  onClick={handleGetSummary}
+                  className="px-5 py-2 cursor-pointer bg-gradient-to-r from-blue-400 to-blue-600 
+                    hover:bg-blue-900 text-white rounded-lg font-medium transition"
+                  disabled={loading}
+                >
+                  {loading ? "Collecting..." : "Get Summary Detail"}
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-700">
+                        Medicine Name
+                      </th>
+                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-700">
+                        Dose
+                      </th>
+                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-700">
+                        Frequency
+                      </th>
+                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-700">
+                        Quantity
+                      </th>
+                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-700">
+                        Timing
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.medicines.map((medicine, index) => (
+                      <tr
+                        key={index}
+                        className="hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="border border-gray-200 px-4 py-3 font-medium text-gray-800">
+                          {medicine.name}
+                        </td>
+                        <td className="border border-gray-200 px-4 py-3 text-gray-600">
+                          {medicine.dose}
+                        </td>
+                        <td className="border border-gray-200 px-4 py-3 text-gray-600">
+                          {medicine.frequency}
+                        </td>
+                        <td className="border border-gray-200 px-4 py-3 text-gray-600">
+                          {medicine.quantity}
+                        </td>
+                        <td className="border border-gray-200 px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {medicine.timing.map((time, timeIndex) => (
+                              <span
+                                key={timeIndex}
+                                className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium"
+                              >
+                                {time}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {summaryResult.length > 0 && (
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl border mt-10 border-white/20 overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-4">
+              <h2 className="text-lg font-semibold text-white flex items-center space-x-2">
+                <Sparkles className="w-5 h-5" />
+                <span>AI Medication Analysis</span>
+              </h2>
+            </div>
+            <div className="p-6">
+              <MedicationSummaryDisplay summaryResult={summaryResult} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

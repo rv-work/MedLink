@@ -616,21 +616,21 @@ const Dashboard = () => {
 
         {/* Enhanced Action Buttons */}
         <div className="flex flex-wrap gap-6 justify-center lg:justify-start">
-          <button className="group relative bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-600 text-white px-10 py-4 rounded-2xl font-bold shadow-2xl hover:shadow-3xl transform hover:-translate-y-1 transition-all duration-300 flex items-center space-x-3 overflow-hidden">
+          <button className="group cursor-pointer relative bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-600 text-white px-10 py-4 rounded-2xl font-bold shadow-2xl hover:shadow-3xl transform hover:-translate-y-1 transition-all duration-300 flex items-center space-x-3 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             <Plus className="w-6 h-6 relative z-10 group-hover:rotate-90 transition-transform duration-300" />
             <span className="relative z-10">Add New Record</span>
             <Sparkles className="w-5 h-5 relative z-10 animate-pulse" />
           </button>
 
-          <button className="group relative bg-gradient-to-r from-green-500 via-emerald-500 to-teal-600 text-white px-10 py-4 rounded-2xl font-bold shadow-2xl hover:shadow-3xl transform hover:-translate-y-1 transition-all duration-300 flex items-center space-x-3 overflow-hidden">
+          <button className="group relative cursor-pointer bg-gradient-to-r from-green-500 via-emerald-500 to-teal-600 text-white px-10 py-4 rounded-2xl font-bold shadow-2xl hover:shadow-3xl transform hover:-translate-y-1 transition-all duration-300 flex items-center space-x-3 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             <Edit3 className="w-6 h-6 relative z-10 group-hover:rotate-12 transition-transform duration-300" />
             <span className="relative z-10">Update Profile</span>
             <Zap className="w-5 h-5 relative z-10 animate-bounce" />
           </button>
 
-          <button className="group relative bg-gradient-to-r from-red-500 via-pink-500 to-rose-600 text-white px-10 py-4 rounded-2xl font-bold shadow-2xl hover:shadow-3xl transform hover:-translate-y-1 transition-all duration-300 flex items-center space-x-3 overflow-hidden">
+          <button className="group relative cursor-pointer bg-gradient-to-r from-red-500 via-pink-500 to-rose-600 text-white px-10 py-4 rounded-2xl font-bold shadow-2xl hover:shadow-3xl transform hover:-translate-y-1 transition-all duration-300 flex items-center space-x-3 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-red-600 via-pink-600 to-rose-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             <Heart className="w-6 h-6 relative z-10 group-hover:scale-110 animate-pulse transition-transform duration-300" />
             <span className="relative z-10">Emergency Services</span>

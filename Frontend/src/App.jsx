@@ -10,6 +10,7 @@ import BeautifulAddReport from "./pages/AddReportWeb3";
 import Web2AddReport from "./pages/AddReportWeb2";
 import ReportInDeatil from "./pages/ReportInDeatil";
 import Emergency from "./pages/Emergency";
+import ChatWithReport from "./pages/ChatWithReport";
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/reports" element={<BeautifulReportsDashboard />} />
         <Route path="/reports/:id" element={<ReportInDeatil />} />
+        <Route path="/reports/:id/ask" element={<ChatWithReport />} />
         <Route path="/add-report-web3" element={<BeautifulAddReport />} />
         <Route path="/add-report-web2" element={<Web2AddReport />} />
         <Route path="/emergency" element={<Emergency />} />

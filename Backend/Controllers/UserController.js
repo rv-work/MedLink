@@ -1,6 +1,12 @@
+import mongoose from 'mongoose';
 import HealthReport from '../Models/HealthReport.js';
 import { UserModel } from '../Models/UserModel.js';
 import { DecryptArrayField } from '../Utils/Encrypt.js';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import dotenv from 'dotenv';
+
+dotenv.config();
+
 
 
 
@@ -35,7 +41,7 @@ export const UserDashboard = async (req, res) => {
   }
 };
 
-export const UploadUserReport =async (req , res) => {
+export const UploadUserReportWeb3 =async (req , res) => {
   try {
     const {
       address,
@@ -46,6 +52,7 @@ export const UploadUserReport =async (req , res) => {
       reasonOfCheckup,
       prescription,
       dateOfReport,
+      medicines ,
     } = req.body;
 
     if(!address){
@@ -60,6 +67,20 @@ export const UploadUserReport =async (req , res) => {
       return res.json({success : true ,  msg : "Address Not Matched With Registered Address"})
     }
 
+    
+    let parsedMedicines = medicines;
+    
+    if (typeof medicines === 'string') {
+      try {
+        parsedMedicines = JSON.parse(medicines);
+      } catch (e) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid JSON format for medicines"
+        });
+      }
+    }
+
     const newReport = new HealthReport({
       owner : req.user._id,
       patientName,
@@ -69,6 +90,7 @@ export const UploadUserReport =async (req , res) => {
       reasonOfCheckup,
       prescription,
       dateOfReport,
+      medicines : parsedMedicines , 
       blockchainTxHash: "pending", 
       type: "web3", 
       reportFileUrl: "Not Availble", 
@@ -135,6 +157,7 @@ export const UploadUserReportWeb2 = async (req, res) => {
       reasonOfCheckup,
       prescription,
       dateOfReport,
+      medicines
     } = req.body;
 
     if (!req.user) {
@@ -143,6 +166,8 @@ export const UploadUserReportWeb2 = async (req, res) => {
         message: "Please login to upload report"
       });
     }
+
+    console.log("med : " , medicines)
 
     if (!patientName || !doctorName || !hospital || !diagnosisSummary || !reasonOfCheckup || !prescription || !dateOfReport) {
       return res.status(400).json({
@@ -158,6 +183,21 @@ export const UploadUserReportWeb2 = async (req, res) => {
       });
     }
 
+
+    let parsedMedicines = medicines;
+    
+    if (typeof medicines === 'string') {
+      try {
+        parsedMedicines = JSON.parse(medicines);
+      } catch (e) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid JSON format for medicines"
+        });
+      }
+    }
+
+
     const newReport = new HealthReport({
       owner: req.user._id,
       patientName,
@@ -166,6 +206,7 @@ export const UploadUserReportWeb2 = async (req, res) => {
       diagnosisSummary,
       reasonOfCheckup,
       prescription,
+      medicines : parsedMedicines ,
       dateOfReport: new Date(dateOfReport),
       reportFileUrl: req.file.path, 
       reportFilePublicId: req.file.filename,
@@ -281,6 +322,7 @@ export const UserReport = async (req , res) => {
         type: report.type,
         blockchainTxHash: report.blockchainTxHash,
         reportFileUrl: report.reportFileUrl,
+        medicines: report.medicines,
         owner: {
           name: report.owner.name,
           email: report.owner.email,
@@ -298,22 +340,185 @@ export const UserReport = async (req , res) => {
 
 
 
+export const ReportMedicines = async (req, res) => {
+  try {
+    const {reportData} = req.body;
+
+
+    if (!reportData) {
+      return res.status(400).json({ success: false, message: 'OCR extracted text is missing in body.' });
+    }
+
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+
+    const chat = model.startChat();
+    const prompt = `
+    You are an expert medical assistant.
+    
+    Below is some text extracted from a doctor's prescription using OCR. 
+    
+    Your task is to extract a list of medicines from the text. For each medicine, return:
+    
+    - "name": the correct name of the medicine based on your knowledge  
+    - "dose": dosage if mentioned (e.g., 1 tablet / 5ml syrup). If not mentioned, write "Not mentioned"  
+    - "quantity ": quantity if mentioned (e.g., 9,6,12 tablets or 1 pack of 100ml syrup ). If not mentioned, write "Not mentioned"
+    - "frequency": frequency if mentioned (e.g., 2/day). If not mentioned, write "Not mentioned"
+    - "timing": timing if mentioned (e.g., ["morning", "afternoon", "evening", "night"]). If not mentioned, return an empty array.
+    
+    Return the result as a JSON array in the following format:
+    [
+      {
+        "name": "Paracetamol Tab",
+        "dose": "1 tablet / 5 mL syrup ",
+        "frequency": "2/day"
+        "quantity": "6"
+        "timing" : ["morning" , "afternoon", "evening" , "night"] // empty array if not mentioned
+      },
+      ...
+    ]
+    
+    ⚠️ Do not explain anything. Only return the JSON array. If no medicines are found, return an empty array.
+    
+    Text to process:
+    """
+    ${reportData}
+    """
+    `;
 
 
 
+    const result = await chat.sendMessage(prompt);
+    const response = await result.response;
+    const rawText = response.text();
+    let structuredData = rawText
+
+
+    if (structuredData.startsWith("```")) {
+        structuredData = structuredData.replace(/```json|```/g, "").trim();
+    }
+
+    structuredData = JSON.parse(structuredData)
+
+
+    return res.json({
+      success: true,
+      summary: structuredData,
+    });
+
+  } catch (err) {
+    console.error('UserReport Error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
 
 
 
+export const ReportSummary = async (req, res) => {
+  try {
+    const reportId = req.query.reportId;
+
+    if (!reportId) {
+      return res.status(400).json({ success: false, message: 'Report Id is missing in body.' });
+    }
+
+    const report = await HealthReport.findById(reportId);
+
+    if (!report) {
+      return res.status(400).json({ success: false, message: 'Report not found' });
+    }
+
+
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+
+    const chat = model.startChat();
+
+const prompt = `
+You are an expert medical assistant.
+
+Below is some medicines from a doctor's prescription . 
+Your task is:
+
+🔹 For each correctly identified medicine, generate a structured explanation using your own knowledge.
+
+The original text is **not reliable** for uses, side effects, dosage, etc. 
+Only use it to find the medicine names. Everything else should come from your medical understanding.
+
+Return a structured JSON array of objects. Each object should have:
+
+- medicineName
+- quantity (if available from the text, else "Not clearly mentioned")
+- whyGiven (what condition it treats)
+- uses
+- bestWayToTake
+- benefits
+- sideEffects
+- precautions
+- anyOtherInfo (optional)
+
+Do not explain the answer. Just return the JSON array. If no medicines are found, return an empty array.
+
+Text to process:
+"""
+${report.medicines}
+"""
+`;
 
 
 
+    const result = await chat.sendMessage(prompt);
+    const response = await result.response;
+    const rawText = response.text();
+    let structuredData = rawText
 
 
+    if (structuredData.startsWith("```")) {
+        structuredData = structuredData.replace(/```json|```/g, "").trim();
+    }
 
+    structuredData = JSON.parse(structuredData)
 
+    
+    const hindiChat = model.startChat();
 
+    for (let i = 0; i < structuredData.length; i++) {
+      const med = structuredData[i];
 
+      const hindiPrompt = `
+तुम एक पेशेवर मेडिकल सहायक हो।
 
+नीचे एक दवाई की जानकारी दी गई है। इसे पढ़कर उसके बारे में संक्षिप्त हिंदी में समझाओ जैसे डॉक्टर अपने मरीज़ को समझाते हैं।
 
+दवाई की जानकारी:
+"""
+दवा का नाम: ${med.medicineName}
+क्यों दी गई: ${med.whyGiven}
+उपयोग: ${med.uses}
+कैसे लेना है: ${med.bestWayToTake}
+फायदे: ${med.benefits}
+साइड इफेक्ट्स: ${med.sideEffects}
+सावधानियाँ: ${med.precautions}
+"""
+हिंदी में सरल भाषा में 4-5 लाइन का संक्षेप में जवाब दो।
+`;
 
+      const hindiResult = await hindiChat.sendMessage(hindiPrompt);
+      const hindiResponse = await hindiResult.response;
+      const hindiText = await hindiResponse.text();
 
+      structuredData[i].hindiSummary = hindiText.trim();
+    }
+
+    console.log("data : " , structuredData)
+
+    return res.json({
+      success: true,
+      summary: structuredData,
+    });
+
+  } catch (err) {
+    console.error('UserReport Error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};

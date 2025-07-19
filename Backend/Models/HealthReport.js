@@ -19,6 +19,17 @@ const healthReportSchema = new mongoose.Schema({
     required: true,
   },
 
+  medicines : [{
+    name: String,
+    dose: String,
+    frequency: String,
+    quantity : String,
+    timing : {
+      type: [String],
+      enum: ['Morning', 'Afternoon', 'Evening', 'Night'],
+    }
+  }],
+
   blockchainTxHash: {
     type: String,
   },
