@@ -1,13 +1,34 @@
 import mongoose from 'mongoose';
 
 const healthReportSchema = new mongoose.Schema({
-  reportFileUrl : String,
-  reportFilePublicId : String,
+ 
+  ageAtReport: Number,
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
   },
+  vitals: {
+  bloodPressure: String, // "120/80"
+  heartRate: Number,
+  temperature: Number,
+  oxygenSaturation: Number,
+  weight: Number,
+  height: Number,
+  bmi: Number
+},
+attachments: [{
+  fileUrl: String,
+  fileName : String, // report  , medicine list 
+  fileType: String, // PDF, Image, etc.
+}],
+  reportType: {
+  type: String,
+  enum: ['Blood Test', 'X-Ray', 'MRI', 'CT Scan', 'ECG', 'General Checkup', 'Other']
+},
+department: {
+  type: String, // e.g., Cardiology, Neurology, Orthopedics
+},
   patientName : String,
   doctorName: String,
   hospital: String,
@@ -26,7 +47,7 @@ const healthReportSchema = new mongoose.Schema({
     quantity : String,
     timing : {
       type: [String],
-      enum: ['Morning', 'Afternoon', 'Evening', 'Night'],
+      enum: ['Early Morning' ,'Morning', 'Afternoon', 'Evening', 'Night'],
     }
   }],
 
@@ -45,8 +66,13 @@ const healthReportSchema = new mongoose.Schema({
   allowedViewers : [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-  }]
+  }],
+ 
 });
 
 const HealthReport = mongoose.model('HealthReport', healthReportSchema);
+
+
 export default HealthReport;
+
+

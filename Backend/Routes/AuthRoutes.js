@@ -1,10 +1,11 @@
 import express from 'express';
 import { Login, Signup , Metamask, CheckAuth, Logout } from '../Controllers/AuthControllers.js';
 import { VerifyToken } from '../Middleware/Verify.js';
+import { uploadPhotoFile } from '../Middleware/Multer.js';
 
 const authRouter = express.Router();
 
-authRouter.post('/signup', Signup);
+authRouter.post('/signup', uploadPhotoFile.single('profilePicture') , Signup);
 authRouter.post('/login', Login);
 authRouter.get('/logout', Logout);
 authRouter.get('/check', CheckAuth);
