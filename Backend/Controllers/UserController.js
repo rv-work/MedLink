@@ -126,8 +126,7 @@ export const UserDashboard = async (req, res) => {
   }
 };
 
-
-export const UploadUserReportWeb3 =async (req , res) => {
+export const UploadUserReportWeb3 = async (req, res) => {
   try {
     const {
       address,
@@ -138,24 +137,42 @@ export const UploadUserReportWeb3 =async (req , res) => {
       reasonOfCheckup,
       prescription,
       dateOfReport,
-      medicines ,
+      medicines,
+      reportType,
+      department,
+      vitals,
+      ageAtReport
     } = req.body;
 
-    if(!address){
-      return res.json({success : true ,  msg : "Address Not Found Please Login Through Your MetaMask"})
+    // Validation checks
+    if (!address) {
+      return res.status(400).json({
+        success: false,
+        message: "Address Not Found Please Login Through Your MetaMask"
+      });
     }
 
+    if (!patientName || !doctorName || !hospital || !diagnosisSummary || !reasonOfCheckup || !prescription || !dateOfReport) {
+      return res.status(400).json({
+        success: false,
+        message: "All required fields must be filled"
+      });
+    }
+
+    // Find user by wallet address
     const acc = await UserModel.findOne({
-      walletAddress :address
-    })
+      walletAddress: address
+    });
 
-    if(!acc) {
-      return res.json({success : true ,  msg : "Address Not Matched With Registered Address"})
+    if (!acc) {
+      return res.status(400).json({
+        success: false,
+        message: "Address Not Matched With Registered Address"
+      });
     }
 
-    
+    // Parse medicines if it's a string
     let parsedMedicines = medicines;
-    
     if (typeof medicines === 'string') {
       try {
         parsedMedicines = JSON.parse(medicines);
@@ -167,51 +184,95 @@ export const UploadUserReportWeb3 =async (req , res) => {
       }
     }
 
+    // Parse vitals if provided
+    let parsedVitals = {};
+    if (vitals) {
+      if (typeof vitals === 'string') {
+        try {
+          parsedVitals = JSON.parse(vitals);
+        } catch (e) {
+          console.warn("Invalid vitals format, using empty object");
+        }
+      } else {
+        parsedVitals = vitals;
+      }
+    }
+
+    // Create new report (same as Web2 but without file attachments)
     const newReport = new HealthReport({
-      owner : req.user._id,
+      owner: req.user._id,
       patientName,
       doctorName,
       hospital,
       diagnosisSummary,
       reasonOfCheckup,
       prescription,
-      dateOfReport,
-      medicines : parsedMedicines , 
-      blockchainTxHash: "pending", 
-      type: "web3", 
-      reportFileUrl: "Not Availble", 
-      reportFilePublicId: "Not Availble",
+      medicines: parsedMedicines || [],
+      dateOfReport: new Date(dateOfReport),
+      reportType: reportType || 'Other',
+      department: department || '',
+      vitals: parsedVitals,
+      ageAtReport: ageAtReport ? parseInt(ageAtReport) : undefined,
+      type: "web3",
+      blockchainTxHash: "pending",
+      attachments: [] // Files will be stored on blockchain/IPFS only
     });
 
     const savedReport = await newReport.save();
 
-
+    // Update user's reports array
     const updatedUser = await UserModel.findByIdAndUpdate(
       req.user._id,
       { $push: { reports: savedReport._id } },
-      {new : true}
+      { new: true }
     );
 
+    // Update user vitals if provided
+    if (Object.keys(parsedVitals).length > 0) {
+      await updateUserVitalsFromReport(req.user._id, parsedVitals, dateOfReport);
+    }
 
-    //  // Update medical history from this report
-    // await updateMedicalHistory(req.user._id, {
-    //   medications: parsedMedicines,
-    //   chronicConditions,
-    //   surgeries
-    // });
+    // Create treatment if medicines are present
+    let treatment = null;
+    if (parsedMedicines && parsedMedicines.length > 0) {
+      try {
+        treatment = await createTreatmentFromReport(savedReport._id, req.user._id);
+      } catch (treatmentError) {
+        console.warn('Failed to create treatment:', treatmentError.message);
+        // Don't fail the whole request if treatment creation fails
+      }
+    }
 
+    return res.status(201).json({
+      success: true,
+      message: "Report created successfully, ready for blockchain file upload" + (treatment ? " and treatment created" : ""),
+      userId: updatedUser._id,
+      reportId: savedReport._id,
+      treatmentId: treatment?._id,
+      data: {
+        reportId: savedReport._id,
+        treatmentId: treatment?._id,
+        patientName: savedReport.patientName,
+        doctorName: savedReport.doctorName,
+        hospital: savedReport.hospital,
+        dateOfReport: savedReport.dateOfReport,
+        uploadedAt: savedReport.createdAt,
+        treatmentCreated: !!treatment,
+        treatmentDays: treatment?.totalDays,
+        filesWillBeStoredOnBlockchain: true
+      }
+    });
 
-    return res.status(201).json({ message: "Report uploaded", userId : updatedUser._id , reportId:  savedReport._id });
-} catch (err) {
-    console.error('UploadUserReport Error:', err);
-    return res.status(500).json({ success :false ,  message: 'Server error' });
+  } catch (err) {
+    console.error('UploadUserReportWeb3 Error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error occurred while creating report'
+    });
   }
-
 };
 
-
-
-export const UpdateUserReport =async (req , res) => {
+export const UpdateUserReportWeb3 =async (req , res) => {
   try {
 
     const { txHash } = req.body;
@@ -974,36 +1035,6 @@ ${report.medicines}
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -28,12 +28,6 @@ app.use(cors({
 }));
 
 
-
-
-
-
-
-
 app.use("/api/auth" , authRouter)
 app.use("/api/user" , userRouter)
 app.use("/api/emergency" , emergencyRouter)
@@ -48,5 +42,5 @@ app.get("/" , (req , res) => {
 
 connectDB();
 app.listen(5000, "0.0.0.0", () => {
-  console.log("Server running on port 5000");
+  console.log(`Server running on http//localhost:5000`);
 });

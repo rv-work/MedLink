@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 
 const Web3Context = createContext();
 
-const contractAddress = "0xef11D1c2aA48826D4c41e54ab82D1Ff5Ad8A64Ca";
+const contractAddress = "0xade143fE7367F07BcF3dFfe39F7bf75c2D6dB970";
 
 export const Web3Provider = ({ children }) => {
   const [contractInstance, setContractInstance] = useState(null);
@@ -62,6 +62,7 @@ export const Web3Provider = ({ children }) => {
 
         const msg =
           "Please sign this message to verify ownership of your wallet.";
+
         const signature = await signer.signMessage(msg);
 
         const res = await fetch("http://localhost:5000/api/auth/metamask", {

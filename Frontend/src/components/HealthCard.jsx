@@ -45,8 +45,7 @@ const HealthcareCard3D = ({ report }) => {
       href={reportLink}
       containerClassName="w-full max-w-md mx-auto"
     >
-      <div className="w-[28rem] h-[32rem] bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 text-slate-100 overflow-hidden shadow-2xl">
-        {/* Header */}
+      <div className="w-[28rem] h-[34rem] bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 text-slate-100 overflow-hidden shadow-2xl">
         <div className="mb-4">
           <div className="flex justify-between items-start mb-3">
             <div className="flex items-center space-x-3">

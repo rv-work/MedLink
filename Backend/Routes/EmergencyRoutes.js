@@ -1,6 +1,6 @@
 import express from 'express';
 import { AddFace, approveEmergency, checkApprovalStatus, Emergency, rejectEmergency, sendEmergencyAlert } from '../Controllers/EmergencyController.js';
-import uploadEmergency from '../Middleware/Multer.js';
+import uploadEmergency, { uploadPhotoFile } from '../Middleware/Multer.js';
 import { VerifyToken } from '../Middleware/Verify.js';
 
 
@@ -31,7 +31,7 @@ emergencyRouter.post('/match-face',  uploadEmergency.single('image') , Emergency
 
 
 
-emergencyRouter.post('/send-alert/:id', validateEmergencyRequest, sendEmergencyAlert);
+emergencyRouter.post('/send-alert/:id',  uploadPhotoFile.single('photo'), validateEmergencyRequest, sendEmergencyAlert);
 emergencyRouter.get('/check-approval/:emergencyId', checkApprovalStatus);
 emergencyRouter.get('/approve/:emergencyId', approveEmergency);
 emergencyRouter.get('/reject/:emergencyId', rejectEmergency);

@@ -276,6 +276,7 @@ export const Login = async (req, res) => {
 };
 
 
+
 export const CheckAuth = async (req, res) => {
   try {
     let token = null;
@@ -289,15 +290,25 @@ export const CheckAuth = async (req, res) => {
       token = req.headers.authorization.split(" ")[1];
     }
 
-    if (!token) return res.status(401).json({ msg: 'No token. Auth denied' });
+    if (!token) {
+      return res.status(401).json({ msg: "No token. Auth denied" });
+    }
 
-    jwt.verify(token, 'secretkey'); 
+    const decoded = jwt.verify(token, "secretkey");
 
-    res.json({ success: true });
+    const user = await UserModel.findById(decoded.id).select("name email");
+
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    res.json({ success: true, user });
   } catch (err) {
-    res.status(401).json({ msg: 'Token is not valid' });
+    console.error(err);
+    res.status(401).json({ msg: "Token is not valid" });
   }
 };
+
 
 
 

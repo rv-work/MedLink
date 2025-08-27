@@ -1,12 +1,12 @@
 import express from 'express';
-import { UserDashboard  , UpdateUserReport, UploadUserReportWeb2, UserReports, UserReport, ReportSummary, ReportMedicines, UploadUserReportWeb3, getCriticalData} from '../Controllers/UserController.js';
+import { UserDashboard  , UploadUserReportWeb2, UserReports, UserReport, ReportSummary, ReportMedicines, UploadUserReportWeb3, getCriticalData, UpdateUserReportWeb3} from '../Controllers/UserController.js';
 import { VerifyToken } from '../Middleware/Verify.js';
 import { uploadReportFiles } from '../Middleware/Multer.js';
 
 const userRouter = express.Router();
 
 userRouter.get('/dashboard', VerifyToken, UserDashboard);
-userRouter.post('/upload-report', VerifyToken, UploadUserReportWeb3);
+userRouter.post('/upload-report-web3', VerifyToken, UploadUserReportWeb3);
 
 //single
 // userRouter.post('/upload-report-web2', VerifyToken, uploadReportFile.single('file'), UploadUserReportWeb2);
@@ -30,7 +30,7 @@ userRouter.post('/upload-report-web2',
 );
 
 
-userRouter.put('/reports/:reportId/blockchain', VerifyToken, UpdateUserReport);
+userRouter.put('/reports/:reportId/blockchain', VerifyToken, UpdateUserReportWeb3);
 userRouter.get('/reports', VerifyToken, UserReports);
 userRouter.get('/reports/:id', VerifyToken, UserReport);
 userRouter.get('/report-summary', VerifyToken, ReportSummary);

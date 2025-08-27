@@ -138,25 +138,27 @@ export const Emergency = async (req, res) => {
 export const sendEmergencyAlert = async (req, res) => {
   try {
     const { id: patientId } = req.params;
+    const pic = req.file
+
+    console.log("file: " ,pic.path)
     const {
       hospitalName,
       address,
       situation,
       description,
-      photo,
       coordinates,
       patientName,
       doctorName,
     } = req.body;
 
-    const user = await User.findById(patientId);
+    const user = await UserModel.findById(patientId);
     if (!user) {
       return res.status(404).json({ error: "Patient not found" });
     }
 
-    if (!user.emergency || user.emergency.length === 0) {
-      return res.status(400).json({ error: "No emergency contacts found for this patient" });
-    }
+    // if (!user.emergency || user.emergency.length === 0) {
+    //   return res.status(400).json({ error: "No emergency contacts found for this patient" });
+    // }
 
     const emergency = new EmergencyModel({
       patientId,
@@ -166,14 +168,15 @@ export const sendEmergencyAlert = async (req, res) => {
       address: address || "",
       situation,
       description: description || "",
-      photo: photo || null,
+      photo: pic?.path || null,
       coordinates,
       status: "pending",
     });
 
     await emergency.save();
 
-    const baseUrl = process.env.BASE_URL || "http://localhost:3000";
+
+    const baseUrl =  "http://localhost:5000";
     const approvalLink = `${baseUrl}/api/emergency/approve/${emergency._id}`;
     const rejectionLink = `${baseUrl}/api/emergency/reject/${emergency._id}`;
 
@@ -201,8 +204,8 @@ This is an automated emergency alert system.`;
 
     const messagePromises = [];
 
-    for (const contact of user.emergency) {
-      let phoneNumber = contact.phone;
+    // for (const contact of user.emergency) {
+      let phoneNumber = "8957553773";
       if (!phoneNumber.startsWith("+")) {
         phoneNumber = "+91" + phoneNumber; // Assuming Indian numbers
       }
@@ -246,7 +249,7 @@ This is an automated emergency alert system.`;
       } catch (error) {
         console.error(`Failed to send alert to ${phoneNumber}:`, error);
       }
-    }
+    // }
 
     await Promise.allSettled(messagePromises);
 
@@ -254,7 +257,7 @@ This is an automated emergency alert system.`;
       success: true,
       message: "Emergency alert sent successfully",
       emergencyId: emergency._id,
-      contactsNotified: user.emergency.length,
+      // contactsNotified: user.emergency.length,
     });
   } catch (error) {
     console.error("Error sending emergency alert:", error);

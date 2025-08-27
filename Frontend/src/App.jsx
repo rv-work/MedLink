@@ -11,6 +11,11 @@ import Web2AddReport from "./pages/AddReportWeb2";
 import ReportInDeatil from "./pages/ReportInDeatil";
 import Emergency from "./pages/Emergency";
 import ChatWithReport from "./pages/ChatWithReport";
+import EnableEmergency from "./pages/EnableEmergency";
+import EmergencyMatches from "./pages/EmergencyMatches";
+import MedicalChatPage from "./pages/MedChat";
+import CriticalData from "./pages/CriticalData";
+import TreatmentDashboard from "./pages/Current";
 
 function App() {
   return (
@@ -27,6 +32,10 @@ function App() {
         <Route path="/add-report-web3" element={<BeautifulAddReport />} />
         <Route path="/add-report-web2" element={<Web2AddReport />} />
         <Route path="/emergency" element={<Emergency />} />
+        <Route path="/enable-emergency" element={<EnableEmergency />} />
+        <Route path="/chat" element={<MedicalChatPage />} />
+        <Route path="/em/:userId" element={<CriticalData />} />
+        <Route path="/current" element={<TreatmentDashboard />} />
       </Routes>
       <Footer />
     </>
@@ -34,3 +43,5 @@ function App() {
 }
 
 export default App;
+
+// 689af0f99107bb161d32d974
