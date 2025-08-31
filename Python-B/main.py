@@ -1,4 +1,5 @@
 import os
+os.environ['TF_USE_LEGACY_KERAS'] = '1'
 import base64
 import io
 import uuid
@@ -14,6 +15,8 @@ from qdrant_client.http.models import PointStruct, Distance, VectorParams
 
 # Load environment variables
 load_dotenv()
+
+
 
 QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")

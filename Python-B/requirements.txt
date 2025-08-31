@@ -2,7 +2,8 @@ fastapi
 uvicorn[standard]
 pydantic
 deepface
-tensorflow==2.15.0
+tensorflow==2.20.0
+keras==3.6.0
 pillow
 numpy
 python-multipart
