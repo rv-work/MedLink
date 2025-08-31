@@ -2,6 +2,8 @@ fastapi
 uvicorn[standard]
 pydantic
 deepface
+tensorflow==2.20.0
+tf-keras
 qdrant-client
 pillow
 numpy
