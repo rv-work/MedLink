@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+pydantic
+deepface
+qdrant-client
+pillow
+numpy
+python-multipart
+python-dotenv
