@@ -66,7 +66,7 @@ export const AddFace = async (req , res) => {
 
 
  try {
-    const response = await axios.post("https://medlink-face.onrender.com/signup", {
+    const response = await axios.post("http://0.0.0.0:5001/signup", {
       userId,
       image: img.buffer.toString("base64"), 
     });
@@ -90,7 +90,7 @@ export const Emergency = async (req, res) => {
   const img = req.file;
 
   try {
-    const response = await axios.post("https://medlink-face.onrender.com/emergency", {
+    const response = await axios.post("http://0.0.0.0:5001/emergency", {
       image: img.buffer.toString("base64"),
     });
 

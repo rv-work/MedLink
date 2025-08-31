@@ -3,6 +3,7 @@ uvicorn[standard]
 pydantic
 deepface
 tensorflow
+tf-keras
 keras
 pillow
 numpy
