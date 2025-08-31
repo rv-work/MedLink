@@ -1,9 +1,10 @@
 fastapi
 uvicorn[standard]
 pydantic
-deepface==0.0.79
-tensorflow==2.20.0
-keras==2.15.0
+deepface==0.0.79 --no-deps
+
+tensorflow==2.14.0
+keras==2.14.0
 pillow
 numpy
 python-multipart
