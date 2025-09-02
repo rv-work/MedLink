@@ -21,6 +21,7 @@ app.use(cors({
   origin: [
     'http://localhost:5173', 
     'http://0.0.0.0:5001',
+    'https://dr-av-instructors-threat.trycloudflare.com',
     '*'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
