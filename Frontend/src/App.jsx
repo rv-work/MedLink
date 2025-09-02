@@ -34,7 +34,10 @@ function App() {
         <Route path="/emergency" element={<Emergency />} />
         <Route path="/enable-emergency" element={<EnableEmergency />} />
         <Route path="/chat" element={<MedicalChatPage />} />
-        <Route path="/em/:userId" element={<CriticalData />} />
+        <Route
+          path="/critical-data/:userId/:emergencyId"
+          element={<CriticalData />}
+        />
         <Route path="/current" element={<TreatmentDashboard />} />
       </Routes>
       <Footer />

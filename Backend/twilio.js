@@ -10,11 +10,41 @@ const client = twilio(
 
 // 1. Send SMS
 export async function sendSMS() {
+
+  
+    const baseUrl = "http://localhost:5000";
+    const approvalLink = `${baseUrl}/api/emergency/approve/${123}`;
+    const rejectionLink = `${baseUrl}/api/emergency/reject/${123}`;
+    const locationUrl = `https://maps.google.com/?q=`;
+    const situationText = "bad"
+    const hospitalName = "bad"
+    const address = "bad"
+    const description = "bad"
+    const doctorName = "bad"
+    const patientName = "bad"
+
+ const messageBodySMS = `........... EMERGENCY ALERT .................
+
+Patient ${patientName} needs immediate medical assistance!
+
+ -> SITUATION: ${situationText}
+ -> HOSPITAL: ${hospitalName}
+ -> ADDRESS: ${address || "Not provided"}
+ -> DETAILS: ${description || "No additional details"}
+ -> DOCTOR: ${doctorName} (Verified)
+
+ -> LOCATION: ${locationUrl}
+
+ -> URGENT: Please respond immediately
+ -> APPROVE ACCESS: ${approvalLink}
+ -> DENY ACCESS: ${rejectionLink}`;
+
+
   try {
     const msg = await client.messages.create({
-      body: "Hello 👋 This is a test SMS",
-      from: process.env.TWILIO_PHONE_NUMBER, // Your Twilio number
-      to: "+91 8957553773",       // Your verified phone number
+      body: messageBodySMS,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: "+918957553773",      
     });
 
     console.log("SMS sent ✅ SID:", msg.sid);
@@ -24,19 +54,19 @@ export async function sendSMS() {
 }
 
 // 2. Send WhatsApp Message
-// async function sendWhatsApp() {
-//   try {
-//     const message = await client.messages.create({
-//       from: process.env.TWILIO_WHATSAPP_NUMBER, // ✅ Twilio sandbox number
-//       to: "whatsapp:+918957553773",  // ✅ Your verified WhatsApp number
-//       body: "Hello from Twilio Whatsapp test",
-//     });
+async function sendWhatsApp() {
+  try {
+    const message = await client.messages.create({
+      from: process.env.TWILIO_WHATSAPP_NUMBER, // ✅ Twilio sandbox number
+      to: "whatsapp:+918957553773",  // ✅ Your verified WhatsApp number
+      body: "Hello from Twilio Whatsapp test",
+    });
 
-//     console.log("✅ Message sent:", message.sid);
-//   } catch (err) {
-//     console.error("❌ Error sending WhatsApp:", err);
-//   }
-// }
+    console.log("✅ Message sent:", message.sid);
+  } catch (err) {
+    console.error("❌ Error sending WhatsApp:", err);
+  }
+}
 
 
 // 3. Make a Voice Call
@@ -62,8 +92,8 @@ export async function makeCall() {
 }
 
 
-//  sendSMS();
+ sendSMS();
 //  sendWhatsApp();
- makeCall()
+//  makeCall()
 
 

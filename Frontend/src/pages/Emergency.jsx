@@ -34,10 +34,10 @@ const EmergencySystem = () => {
   const [showEmergencyForm, setShowEmergencyForm] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [emergencyFormData, setEmergencyFormData] = useState({
-    hospitalName: "",
-    address: "",
-    situation: "",
-    description: "",
+    hospitalName: "Test1",
+    address: "ok OK",
+    situation: "other",
+    description: "BHUJNKM",
     photo: null,
     coordinates: null,
   });
@@ -241,6 +241,8 @@ const EmergencySystem = () => {
       alert("Please fill all required fields and get location");
       return;
     }
+
+    console.log("cord : ", emergencyFormData.coordinates);
 
     try {
       setRequestingHelp((prev) => ({ ...prev, [selectedMatch.userId]: true }));

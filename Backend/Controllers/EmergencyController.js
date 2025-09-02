@@ -5,9 +5,15 @@ import axios from "axios";
 import { EmergencyModel } from '../Models/Emergency.js';
 import twilio from "twilio";
 
+import dotenv from "dotenv"
+
+dotenv.config();
+
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 const twilioWhatsApp = process.env.TWILIO_WHATSAPP_NUMBER; 
 const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
+
+
 
 
 
@@ -66,7 +72,7 @@ export const AddFace = async (req , res) => {
 
 
  try {
-    const response = await axios.post("http://0.0.0.0:5001/signup", {
+    const response = await axios.post("https://dr-av-instructors-threat.trycloudflare.com/signup", {
       userId,
       image: img.buffer.toString("base64"), 
     });
@@ -90,7 +96,7 @@ export const Emergency = async (req, res) => {
   const img = req.file;
 
   try {
-    const response = await axios.post("http://0.0.0.0:5001/emergency", {
+    const response = await axios.post("https://dr-av-instructors-threat.trycloudflare.com/emergency", {
       image: img.buffer.toString("base64"),
     });
 
@@ -134,13 +140,10 @@ export const Emergency = async (req, res) => {
 
 
 
-
 export const sendEmergencyAlert = async (req, res) => {
   try {
     const { id: patientId } = req.params;
-    const pic = req.file
-
-    console.log("file: " ,pic.path)
+    const pic = req.file;
     const {
       hospitalName,
       address,
@@ -152,13 +155,7 @@ export const sendEmergencyAlert = async (req, res) => {
     } = req.body;
 
     const user = await UserModel.findById(patientId);
-    if (!user) {
-      return res.status(404).json({ error: "Patient not found" });
-    }
-
-    // if (!user.emergency || user.emergency.length === 0) {
-    //   return res.status(400).json({ error: "No emergency contacts found for this patient" });
-    // }
+    if (!user) return res.status(404).json({ error: "Patient not found" });
 
     const emergency = new EmergencyModel({
       patientId,
@@ -169,24 +166,22 @@ export const sendEmergencyAlert = async (req, res) => {
       situation,
       description: description || "",
       photo: pic?.path || null,
-      coordinates,
       status: "pending",
     });
 
+    console.log("cords : " , coordinates)
+
     await emergency.save();
 
-
-    const baseUrl =  "http://localhost:5000";
+    const baseUrl = "http://localhost:5000";
     const approvalLink = `${baseUrl}/api/emergency/approve/${emergency._id}`;
     const rejectionLink = `${baseUrl}/api/emergency/reject/${emergency._id}`;
-
-    // Create message content
     const situationText = situation.replace("_", " ").toUpperCase();
     const locationUrl = `https://maps.google.com/?q=${coordinates.latitude},${coordinates.longitude}`;
 
-    const message = `🚨 EMERGENCY ALERT 🚨
+    const messageBodyWh = `🚨 EMERGENCY ALERT 🚨
 
-Your contact ${patientName} needs immediate medical assistance!
+Patient ${patientName} needs immediate medical assistance!
 
 📍 SITUATION: ${situationText}
 🏥 HOSPITAL: ${hospitalName}
@@ -198,66 +193,74 @@ Your contact ${patientName} needs immediate medical assistance!
 
 ⚡ URGENT: Please respond immediately
 ✅ APPROVE ACCESS: ${approvalLink}
-❌ DENY ACCESS: ${rejectionLink}
+❌ DENY ACCESS: ${rejectionLink}`;
 
-This is an automated emergency alert system.`;
 
-    const messagePromises = [];
+    const messageBodySMS = `........... EMERGENCY ALERT .................
 
-    // for (const contact of user.emergency) {
-      let phoneNumber = "8957553773";
-      if (!phoneNumber.startsWith("+")) {
-        phoneNumber = "+91" + phoneNumber; // Assuming Indian numbers
-      }
+Patient ${patientName} needs immediate medical assistance!
 
-      try {
-        // SMS
-        messagePromises.push(
-          client.messages.create({
-            body: message,
-            from: twilioPhone,
-            to: phoneNumber,
-          })
-        );
+ -> SITUATION: ${situationText}
+ -> HOSPITAL: ${hospitalName}
+ -> ADDRESS: ${address || "Not provided"}
+ -> DETAILS: ${description || "No additional details"}
+ -> DOCTOR: ${doctorName} (Verified)
 
-        // WhatsApp
-        if (twilioWhatsApp) {
-          messagePromises.push(
-            client.messages.create({
-              body: message,
-              from: twilioWhatsApp,
-              to: `whatsapp:${phoneNumber}`,
-            })
-          );
-        }
+ -> LOCATION: ${locationUrl}
 
-        // Voice Call
-        messagePromises.push(
-          client.calls.create({
-            twiml: `<Response>
-              <Say voice="alice">Emergency alert for ${patientName}. 
-              They need immediate medical assistance at ${hospitalName}. 
-              Situation: ${situationText}. 
-              Please check your messages for more details and respond immediately.
-              Repeat: This is an emergency alert for ${patientName}.
-              </Say>
-            </Response>`,
-            to: phoneNumber,
-            from: twilioPhone,
-          })
-        );
-      } catch (error) {
-        console.error(`Failed to send alert to ${phoneNumber}:`, error);
-      }
-    // }
+ -> URGENT: Please respond immediately
+ -> APPROVE ACCESS: ${approvalLink}
+ -> DENY ACCESS: ${rejectionLink}`;
 
-    await Promise.allSettled(messagePromises);
+
+    let phoneNumber = "8957553773".trim();
+    if (!phoneNumber.startsWith("+")) phoneNumber = "+91" + phoneNumber;
+
+    const messagePromises = [
+      // SMS
+      client.messages.create({
+        body: messageBodySMS,
+        from: twilioPhone,
+        to: "+918957553773",
+      }),
+    ];
+
+    // WhatsApp
+    if (twilioWhatsApp) {
+      messagePromises.push(
+        client.messages.create({
+          body: messageBodyWh,
+          from: `${twilioWhatsApp}`,
+          to: `whatsapp:${phoneNumber}`,
+        })
+      );
+    }
+
+    // Voice Call
+    messagePromises.push(
+      client.calls.create({
+        twiml: `<Response>
+                  <Say voice="alice">Emergency alert for ${patientName}. 
+                  They need immediate medical assistance at ${hospitalName}. 
+                  Situation: ${situationText}. 
+                  Please check your messages for more details and respond immediately.
+                  Repeat: This is an emergency alert for ${patientName}.
+                  </Say>
+                </Response>`,
+        from: twilioPhone,
+        to: phoneNumber,
+      })
+    );
+
+    const results = await Promise.allSettled(messagePromises);
+    results.forEach((r, i) => {
+      if (r.status === "rejected") console.error("Failed alert #", i, r.reason);
+    });
 
     res.status(200).json({
       success: true,
       message: "Emergency alert sent successfully",
       emergencyId: emergency._id,
-      // contactsNotified: user.emergency.length,
     });
   } catch (error) {
     console.error("Error sending emergency alert:", error);

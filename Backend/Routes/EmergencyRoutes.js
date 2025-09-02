@@ -14,11 +14,11 @@ const validateEmergencyRequest = (req, res, next) => {
     });
   }
   
-  if (!coordinates.latitude || !coordinates.longitude) {
-    return res.status(400).json({
-      error: 'Invalid coordinates: latitude and longitude are required'
-    });
-  }
+  // if (!coordinates.latitude || !coordinates.longitude) {
+  //   return res.status(400).json({
+  //     error: 'Invalid coordinates: latitude and longitude are required'
+  //   });
+  // }
   
   next();
 };
