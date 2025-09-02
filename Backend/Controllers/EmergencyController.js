@@ -221,7 +221,7 @@ Patient ${patientName} needs immediate medical assistance!
       client.messages.create({
         body: messageBodySMS,
         from: twilioPhone,
-        to: "+918957553773",
+        to: phoneNumber,
       }),
     ];
 
@@ -248,7 +248,7 @@ Patient ${patientName} needs immediate medical assistance!
                   </Say>
                 </Response>`,
         from: twilioPhone,
-        to: phoneNumber,
+        to: "+919219343631",
       })
     );
 
