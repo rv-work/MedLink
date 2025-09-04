@@ -1,4 +1,3 @@
-// pages/PatientConsultation.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
@@ -95,7 +94,7 @@ const PatientConsultation = () => {
 
       // Handle remote stream
       peerConnection.ontrack = (event) => {
-        if (remoteVideoRef.current) {
+        if (remoteVideoRef.current && event.streams && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
         }
         setCallStatus("connected");
@@ -111,15 +110,18 @@ const PatientConsultation = () => {
         }
       };
 
-      // Socket event handlers
-      socket.on("offer", async (offer) => {
+      // Socket event handlers - updated destructuring of data
+      socket.on("offer", async ({ offer }) => {
         await peerConnection.setRemoteDescription(offer);
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
-        socket.emit("answer", { answer, consultationId });
+        socket.emit("answer", {
+          answer: peerConnection.localDescription,
+          consultationId,
+        });
       });
 
-      socket.on("answer", async (answer) => {
+      socket.on("answer", async ({ answer }) => {
         await peerConnection.setRemoteDescription(answer);
       });
 

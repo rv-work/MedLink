@@ -1,4 +1,3 @@
-// socket/socketServer.js
 import { Server } from 'socket.io';
 
 export const initializeSocket = (server) => {
@@ -30,16 +29,17 @@ export const initializeSocket = (server) => {
       socket.to(consultationId).emit('doctor-joined');
     });
 
+    // FIXED: Emit objects with wrapped data matching client expectations
     socket.on('offer', ({ offer, consultationId }) => {
-      socket.to(consultationId).emit('offer', offer);
+      socket.to(consultationId).emit('offer', { offer, consultationId });
     });
 
     socket.on('answer', ({ answer, consultationId }) => {
-      socket.to(consultationId).emit('answer', answer);
+      socket.to(consultationId).emit('answer', { answer, consultationId });
     });
 
     socket.on('ice-candidate', ({ candidate, consultationId }) => {
-      socket.to(consultationId).emit('ice-candidate', candidate);
+      socket.to(consultationId).emit('ice-candidate', { candidate, consultationId });
     });
 
     socket.on('end-call', (consultationId) => {
