@@ -31,7 +31,7 @@ const WaitingForDoctor = () => {
 
         if (request && request.status === "accepted") {
           // Redirect to patient consultation page
-          window.location.href = `/consultation/${request._id}`;
+          window.location.href = `patient/consultation/${request._id}`;
         }
       }
     } catch (error) {

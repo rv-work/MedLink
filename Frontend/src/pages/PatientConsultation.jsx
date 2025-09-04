@@ -21,7 +21,6 @@ const PatientConsultation = () => {
   const pendingCandidatesRef = useRef([]);
   const reconnectTimeoutRef = useRef(null);
   const connectionTimeoutRef = useRef(null);
-  const isProcessingOfferRef = useRef(false); // Prevent processing multiple offers
 
   // Production-ready ICE servers
   const iceServers = [
@@ -132,14 +131,12 @@ const PatientConsultation = () => {
 
     setReconnectAttempts((prev) => prev + 1);
     setCallStatus("reconnecting");
-    console.log(`Patient reconnection attempt ${reconnectAttempts + 1}`);
 
     // Wait before attempting reconnection
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     try {
-      // Re-emit patient ready to trigger new offer from doctor
-      isProcessingOfferRef.current = false; // Reset processing flag
+      // Re-emit patient ready to trigger new offer
       socketRef.current?.emit("patient-ready", consultationId);
     } catch (error) {
       console.error("Reconnection failed:", error);
@@ -220,11 +217,6 @@ const PatientConsultation = () => {
             console.log("WebRTC connection established successfully");
             setCallStatus("connected");
             setReconnectAttempts(0);
-            isProcessingOfferRef.current = false; // Reset processing flag
-
-            // Notify server about successful connection
-            socketRef.current?.emit("connection-established", consultationId);
-
             if (reconnectTimeoutRef.current) {
               clearTimeout(reconnectTimeoutRef.current);
             }
@@ -234,7 +226,6 @@ const PatientConsultation = () => {
             break;
           case "disconnected":
             console.log("Connection disconnected, attempting reconnection");
-            if (callStatus !== "connected") return; // Don't reconnect if never connected
             setCallStatus("reconnecting");
             reconnectTimeoutRef.current = setTimeout(attemptReconnection, 2000);
             break;
@@ -251,10 +242,7 @@ const PatientConsultation = () => {
 
       peerConnection.oniceconnectionstatechange = () => {
         console.log("ICE connection state:", peerConnection.iceConnectionState);
-        if (
-          peerConnection.iceConnectionState === "failed" &&
-          callStatus === "connected"
-        ) {
+        if (peerConnection.iceConnectionState === "failed") {
           attemptReconnection();
         }
       };
@@ -279,62 +267,20 @@ const PatientConsultation = () => {
       // Socket event handlers
       socket.on("offer", async ({ offer }) => {
         try {
-          // Prevent processing multiple offers simultaneously
-          if (
-            isProcessingOfferRef.current ||
-            peerConnection.connectionState === "connected"
-          ) {
-            console.log(
-              "Skipping offer processing - already processing or connected"
-            );
-            return;
-          }
-
-          isProcessingOfferRef.current = true;
           console.log("Received offer from doctor");
           setCallStatus("processing-offer");
-
-          // Check if we already have a remote description
-          if (peerConnection.remoteDescription) {
-            console.log(
-              "Already have remote description, resetting connection"
-            );
-            // Create new peer connection for the new offer
-            const newPeerConnection = new RTCPeerConnection({
-              iceServers,
-              iceCandidatePoolSize: 10,
-              iceTransportPolicy: "all",
-            });
-
-            // Close old connection
-            peerConnection.close();
-
-            // Setup new connection
-            peerConnectionRef.current = newPeerConnection;
-            localStreamRef.current.getTracks().forEach((track) => {
-              newPeerConnection.addTrack(track, localStreamRef.current);
-            });
-
-            // Re-attach event handlers
-            newPeerConnection.ontrack = peerConnection.ontrack;
-            newPeerConnection.onconnectionstatechange =
-              peerConnection.onconnectionstatechange;
-            newPeerConnection.oniceconnectionstatechange =
-              peerConnection.oniceconnectionstatechange;
-            newPeerConnection.onicecandidate = peerConnection.onicecandidate;
-          }
 
           // Ensure we have local stream attached
           if (
             localStreamRef.current &&
-            peerConnectionRef.current.getSenders().length === 0
+            peerConnection.getSenders().length === 0
           ) {
             localStreamRef.current.getTracks().forEach((track) => {
-              peerConnectionRef.current.addTrack(track, localStreamRef.current);
+              peerConnection.addTrack(track, localStreamRef.current);
             });
           }
 
-          await peerConnectionRef.current.setRemoteDescription(
+          await peerConnection.setRemoteDescription(
             new RTCSessionDescription(offer)
           );
           console.log("Set remote description successfully");
@@ -342,33 +288,20 @@ const PatientConsultation = () => {
           // Process any pending ICE candidates
           await processPendingCandidates();
 
-          const answer = await peerConnectionRef.current.createAnswer();
-          await peerConnectionRef.current.setLocalDescription(answer);
+          const answer = await peerConnection.createAnswer();
+          await peerConnection.setLocalDescription(answer);
           console.log("Created and set local description (answer)");
 
           socket.emit("answer", {
-            answer: peerConnectionRef.current.localDescription,
+            answer: peerConnection.localDescription,
             consultationId,
           });
 
           setCallStatus("connecting");
-
-          // Set connection timeout
-          if (connectionTimeoutRef.current) {
-            clearTimeout(connectionTimeoutRef.current);
-          }
-          connectionTimeoutRef.current = setTimeout(() => {
-            if (peerConnectionRef.current.connectionState !== "connected") {
-              console.log("Connection timeout after processing offer");
-              attemptReconnection();
-            }
-          }, 30000);
         } catch (error) {
           console.error("Error handling offer:", error);
           setMessage("Error establishing connection");
           setCallStatus("error");
-        } finally {
-          isProcessingOfferRef.current = false;
         }
       });
 
@@ -412,16 +345,8 @@ const PatientConsultation = () => {
       });
 
       socket.on("doctor-joined", () => {
-        console.log("Doctor joined, sending patient ready signal");
+        console.log("Doctor joined, waiting for offer");
         setCallStatus("doctor-connected");
-
-        // Only send patient-ready if not already processing an offer
-        if (
-          !isProcessingOfferRef.current &&
-          peerConnection.connectionState !== "connected"
-        ) {
-          socket.emit("patient-ready", consultationId);
-        }
       });
 
       socket.on("call-ended", () => {
@@ -435,18 +360,22 @@ const PatientConsultation = () => {
 
       socket.on("disconnect", () => {
         console.log("Socket disconnected");
-        if (callStatus === "connected") {
-          setCallStatus("reconnecting");
-        }
+        setCallStatus("reconnecting");
       });
 
       // Join consultation room
       socket.emit("join-consultation", consultationId);
-
-      // Send patient ready signal
       socket.emit("patient-ready", consultationId);
 
       setCallStatus("waiting-for-doctor");
+
+      // Add connection timeout
+      connectionTimeoutRef.current = setTimeout(() => {
+        if (callStatus !== "connected") {
+          console.log("Connection timeout, attempting reconnection");
+          attemptReconnection();
+        }
+      }, 15000); // 15 seconds timeout
     } catch (error) {
       console.error("Error initializing WebRTC:", error);
       setMessage(
@@ -531,8 +460,7 @@ const PatientConsultation = () => {
                 ? "bg-yellow-100 text-yellow-700"
                 : callStatus === "reconnecting"
                 ? "bg-orange-100 text-orange-700"
-                : callStatus === "waiting-for-doctor" ||
-                  callStatus === "doctor-connected"
+                : callStatus === "waiting-for-doctor"
                 ? "bg-blue-100 text-blue-700"
                 : "bg-red-100 text-red-700"
             }`}

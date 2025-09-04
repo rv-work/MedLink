@@ -94,7 +94,7 @@ const ModernNavbar = () => {
               </div>
               <div className="text-white">
                 <h1 className="text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
-                  MediCare+
+                  CareConnect
                 </h1>
                 <p className="text-xs text-blue-100 opacity-80 hidden sm:block">
                   Healthcare Platform

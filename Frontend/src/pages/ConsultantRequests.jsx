@@ -40,7 +40,7 @@ const ConsultantRequests = () => {
         setRequests((prev) => prev.filter((req) => req._id !== requestId));
 
         setTimeout(() => {
-          window.location.href = `/consultation/${requestId}`;
+          window.location.href = `/doctor/consultation/${requestId}`;
         }, 2000);
       }
     } catch (error) {
