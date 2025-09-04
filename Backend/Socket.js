@@ -4,7 +4,7 @@ import {Server} from 'socket.io';
 const consultationStates = new Map();
 
 export const initializeSocket = (server) => {
-  const io = Server(server, {
+  const io = new Server(server, {
     cors: {
       origin: ["http://localhost:3000", "https://medlink-frontend.vercel.app"],
       methods: ["GET", "POST"],
