@@ -20,6 +20,7 @@ const PatientConsultation = () => {
   const socketRef = useRef(null);
   const pendingCandidatesRef = useRef([]);
   const reconnectTimeoutRef = useRef(null);
+  const connectionTimeoutRef = useRef(null);
 
   // Production-ready ICE servers
   const iceServers = [
@@ -46,6 +47,9 @@ const PatientConsultation = () => {
   const cleanup = () => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
+    }
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
     }
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -98,6 +102,22 @@ const PatientConsultation = () => {
       }
     }
     pendingCandidatesRef.current = [];
+  };
+
+  const verifyStreamTracks = (stream) => {
+    const videoTracks = stream.getVideoTracks();
+    const audioTracks = stream.getAudioTracks();
+
+    console.log("Stream verification:", {
+      videoTracks: videoTracks.length,
+      audioTracks: audioTracks.length,
+      videoEnabled: videoTracks[0]?.enabled,
+      audioEnabled: audioTracks[0]?.enabled,
+      videoReadyState: videoTracks[0]?.readyState,
+      audioReadyState: audioTracks[0]?.readyState,
+    });
+
+    return videoTracks.length > 0 && audioTracks.length > 0;
   };
 
   const attemptReconnection = async () => {
@@ -167,31 +187,55 @@ const PatientConsultation = () => {
       peerConnection.ontrack = (event) => {
         console.log("Received remote stream from doctor");
         if (remoteVideoRef.current && event.streams && event.streams[0]) {
-          remoteVideoRef.current.srcObject = event.streams[0];
-          setCallStatus("connected");
-          setReconnectAttempts(0);
+          const stream = event.streams[0];
+
+          if (verifyStreamTracks(stream)) {
+            remoteVideoRef.current.srcObject = stream;
+
+            // Wait for video to actually start playing
+            remoteVideoRef.current.onloadedmetadata = () => {
+              console.log("Remote video metadata loaded");
+              setCallStatus("connected");
+              setReconnectAttempts(0);
+              if (connectionTimeoutRef.current) {
+                clearTimeout(connectionTimeoutRef.current);
+              }
+            };
+          } else {
+            console.error("Received stream has no tracks");
+          }
         }
       };
 
       peerConnection.onconnectionstatechange = () => {
         console.log("Connection state:", peerConnection.connectionState);
         switch (peerConnection.connectionState) {
+          case "connecting":
+            setCallStatus("connecting");
+            break;
           case "connected":
+            console.log("WebRTC connection established successfully");
             setCallStatus("connected");
             setReconnectAttempts(0);
             if (reconnectTimeoutRef.current) {
               clearTimeout(reconnectTimeoutRef.current);
             }
-            break;
-          case "connecting":
-            setCallStatus("connecting");
+            if (connectionTimeoutRef.current) {
+              clearTimeout(connectionTimeoutRef.current);
+            }
             break;
           case "disconnected":
+            console.log("Connection disconnected, attempting reconnection");
             setCallStatus("reconnecting");
             reconnectTimeoutRef.current = setTimeout(attemptReconnection, 2000);
             break;
           case "failed":
+            console.log("Connection failed, attempting reconnection");
             attemptReconnection();
+            break;
+          case "closed":
+            console.log("Connection closed");
+            setCallStatus("ended");
             break;
         }
       };
@@ -205,12 +249,18 @@ const PatientConsultation = () => {
 
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log("Sending ICE candidate:", event.candidate.type);
+          console.log(
+            "Sending ICE candidate:",
+            event.candidate.type,
+            event.candidate.candidate
+          );
           socket.emit("ice-candidate", {
             candidate: event.candidate,
             consultationId,
             from: "patient",
           });
+        } else {
+          console.log("ICE candidate gathering completed");
         }
       };
 
@@ -220,11 +270,22 @@ const PatientConsultation = () => {
           console.log("Received offer from doctor");
           setCallStatus("processing-offer");
 
+          // Ensure we have local stream attached
+          if (
+            localStreamRef.current &&
+            peerConnection.getSenders().length === 0
+          ) {
+            localStreamRef.current.getTracks().forEach((track) => {
+              peerConnection.addTrack(track, localStreamRef.current);
+            });
+          }
+
           await peerConnection.setRemoteDescription(
             new RTCSessionDescription(offer)
           );
-          console.log("Set remote description");
+          console.log("Set remote description successfully");
 
+          // Process any pending ICE candidates
           await processPendingCandidates();
 
           const answer = await peerConnection.createAnswer();
@@ -234,13 +295,13 @@ const PatientConsultation = () => {
           socket.emit("answer", {
             answer: peerConnection.localDescription,
             consultationId,
-            from: "patient",
           });
 
-          setCallStatus("waiting-for-connection");
+          setCallStatus("connecting");
         } catch (error) {
           console.error("Error handling offer:", error);
           setMessage("Error establishing connection");
+          setCallStatus("error");
         }
       });
 
@@ -285,7 +346,7 @@ const PatientConsultation = () => {
 
       socket.on("doctor-joined", () => {
         console.log("Doctor joined, waiting for offer");
-        setCallStatus("waiting-for-connection");
+        setCallStatus("doctor-connected");
       });
 
       socket.on("call-ended", () => {
@@ -307,6 +368,14 @@ const PatientConsultation = () => {
       socket.emit("patient-ready", consultationId);
 
       setCallStatus("waiting-for-doctor");
+
+      // Add connection timeout
+      connectionTimeoutRef.current = setTimeout(() => {
+        if (callStatus !== "connected") {
+          console.log("Connection timeout, attempting reconnection");
+          attemptReconnection();
+        }
+      }, 15000); // 15 seconds timeout
     } catch (error) {
       console.error("Error initializing WebRTC:", error);
       setMessage(
@@ -342,7 +411,6 @@ const PatientConsultation = () => {
     }, 2000);
   };
 
-  // Rest of the component remains the same as your original...
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -387,7 +455,8 @@ const PatientConsultation = () => {
               callStatus === "connected"
                 ? "bg-green-100 text-green-700"
                 : callStatus === "connecting" ||
-                  callStatus === "waiting-for-connection"
+                  callStatus === "waiting-for-connection" ||
+                  callStatus === "processing-offer"
                 ? "bg-yellow-100 text-yellow-700"
                 : callStatus === "reconnecting"
                 ? "bg-orange-100 text-orange-700"
@@ -446,7 +515,11 @@ const PatientConsultation = () => {
                 <span className="text-white">
                   {callStatus === "waiting-for-doctor"
                     ? "Waiting for doctor..."
-                    : callStatus === "waiting-for-connection"
+                    : callStatus === "doctor-connected"
+                    ? "Doctor connected, establishing video..."
+                    : callStatus === "processing-offer"
+                    ? "Processing connection..."
+                    : callStatus === "connecting"
                     ? "Connecting..."
                     : callStatus === "reconnecting"
                     ? "Reconnecting..."
