@@ -11,7 +11,7 @@ import { connectDB } from "./DB/connectDB.js";
 import emergencyRouter from "./Routes/EmergencyRoutes.js";
 import medChatRouter from "./Routes/MedChatRoutes.js";
 import treatMentRouter from "./Routes/TreatMentRoutes.js";
-import { startDailySummaryJob } from "./Cron/dailySummaryJob.js";
+// import { startDailySummaryJob } from "./Cron/dailySummaryJob.js";
 import doctorRouter from "./Routes/DocterRoutes.js";
 import ConsultationRoutes from "./Routes/ConsultationRoutes.js";
 
@@ -52,7 +52,7 @@ app.get("/", (req, res) => {
 });
 
 connectDB();
-startDailySummaryJob();
+// startDailySummaryJob();
 
 server.listen(5000, "0.0.0.0", () => {
   console.log(`Server running on https://medlink-bh5c.onrender.com`);
