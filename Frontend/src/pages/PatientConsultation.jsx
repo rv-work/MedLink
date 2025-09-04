@@ -138,20 +138,25 @@ const PatientConsultation = () => {
       socket.on("offer", async ({ offer }) => {
         try {
           console.log("Received offer from doctor");
+          setCallStatus("processing-offer");
+
           await peerConnection.setRemoteDescription(
             new RTCSessionDescription(offer)
           );
+          console.log("Set remote description");
 
           // Process any pending ICE candidates
           for (const candidate of pendingCandidatesRef.current) {
             await peerConnection.addIceCandidate(
               new RTCIceCandidate(candidate)
             );
+            console.log("Added pending ICE candidate");
           }
           pendingCandidatesRef.current = [];
 
           const answer = await peerConnection.createAnswer();
           await peerConnection.setLocalDescription(answer);
+          console.log("Created and set local description (answer)");
 
           console.log("Sending answer to doctor");
           socket.emit("answer", {
@@ -159,6 +164,8 @@ const PatientConsultation = () => {
             consultationId,
             from: "patient",
           });
+
+          setCallStatus("waiting-for-connection");
         } catch (error) {
           console.error("Error handling offer:", error);
           setMessage("Error establishing connection");

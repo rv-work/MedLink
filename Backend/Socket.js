@@ -29,10 +29,22 @@ export const initializeSocket = (server) => {
       const room = consultationRooms.get(consultationId);
       if (room) {
         room.doctor = socket.id;
+        room.doctorReady = true;
       }
       
       console.log(`Doctor ${socket.id} joined consultation ${consultationId}`);
-      socket.to(consultationId).emit('doctor-joined');
+      
+      // Notify all participants in the room
+      io.to(consultationId).emit('doctor-joined', { 
+        consultationId,
+        doctorId: socket.id 
+      });
+      
+      // Check if both are ready to start signaling
+      if (room && room.patientReady && room.doctorReady) {
+        console.log('Both doctor and patient ready, starting signaling');
+        io.to(consultationId).emit('start-signaling', consultationId);
+      }
     });
 
     // Patient is ready for connection
@@ -40,11 +52,22 @@ export const initializeSocket = (server) => {
       const room = consultationRooms.get(consultationId);
       if (room) {
         room.patient = socket.id;
+        room.patientReady = true;
       }
       
       console.log(`Patient ${socket.id} ready for consultation ${consultationId}`);
-      // Notify doctor that patient is ready
-      socket.to(consultationId).emit('patient-ready');
+      
+      // Notify all participants in the room
+      io.to(consultationId).emit('patient-ready', { 
+        consultationId,
+        patientId: socket.id 
+      });
+      
+      // Check if both are ready to start signaling
+      if (room && room.patientReady && room.doctorReady) {
+        console.log('Both doctor and patient ready, starting signaling');
+        io.to(consultationId).emit('start-signaling', consultationId);
+      }
     });
 
     // WebRTC signaling - Offer from doctor to patient
