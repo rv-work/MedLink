@@ -63,17 +63,10 @@ function App() {
         {/* Consultation Routes */}
         <Route path="/request-consultant" element={<RequestConsultant />} />
         <Route path="/waiting-for-doctor" element={<WaitingForDoctor />} />
-        <Route
-          path="/patient/consultation/:consultationId"
-          element={<PatientConsultation />}
-        />
+        <Route path="/doctor/consultants" element={<ConsultantRequests />} />
+        <Route path="/consultation/:consultationId" element={<VideoCall />} />
 
         {/* Doctor Consultation Routes */}
-        <Route path="/doctor/consultants" element={<ConsultantRequests />} />
-        <Route
-          path="/doctor/consultation/:consultationId"
-          element={<DoctorConsultation />}
-        />
       </Routes>
       <Footer />
     </>
