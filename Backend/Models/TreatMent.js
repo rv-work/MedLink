@@ -141,5 +141,5 @@ treatmentSchema.methods.updateProgress = function() {
   this.progress.adherencePercentage = this.calculateAdherence();
 };
 
-const Treatment = mongoose.models.Treatment || mongoose.model("Treatment", treatmentSchema);
+const Treatment =  mongoose.model("Treatment", treatmentSchema);
 export default Treatment;
