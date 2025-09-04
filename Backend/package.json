@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+     "socket.io": "^4.7.5",
     "@google/genai": "^1.13.0",
     "@google/generative-ai": "^0.24.1",
     "@langchain/community": "^0.3.50",
@@ -33,9 +34,11 @@
     "mongoose": "^8.15.0",
     "multer": "^2.0.1",
     "multer-storage-cloudinary": "^4.0.0",
+    "node-cron": "^4.2.1",
     "nodemon": "^3.1.10",
     "pdf-parse": "^1.1.1",
     "readline-sync": "^1.4.10",
-    "twilio": "^5.8.0"
+    "twilio": "^5.8.0",
+    "uuid": "^11.1.0"
   }
 }

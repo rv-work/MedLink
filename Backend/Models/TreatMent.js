@@ -32,7 +32,6 @@ const treatmentSchema = new mongoose.Schema({
     default: 'active',
   },
   
-  // All medicines in this treatment
   medicines: [{
     name: String,
     dose: String,
@@ -44,11 +43,10 @@ const treatmentSchema = new mongoose.Schema({
     }
   }],
 
-  // Day-wise breakdown
   days: [{
     date: Date,
-    dayNumber: Number, // 1, 2, 3...
-    totalMedicinesToTake: Number, // Total medicine doses for the day
+    dayNumber: Number, 
+    totalMedicinesToTake: Number, 
     taken: {
       type: Number,
       default: 0
@@ -56,7 +54,7 @@ const treatmentSchema = new mongoose.Schema({
     medicines: [{
       name: String,
       dose: String,
-      totalToday: Number, // How many times this medicine should be taken today
+      totalToday: Number, 
       timings: [{
         name: {
           type: String,
@@ -66,12 +64,11 @@ const treatmentSchema = new mongoose.Schema({
           type: Boolean,
           default: false
         },
-        takenAt: Date // When it was actually taken
+        takenAt: Date 
       }]
     }]
   }],
 
-  // Daily notes and condition tracking
   dailyNotes: [{
     date: Date,
     notes: [{
@@ -86,10 +83,9 @@ const treatmentSchema = new mongoose.Schema({
       enum: ['same', 'better', 'worse'],
       default: 'same'
     },
-    conditionNotes: String // Additional notes about the condition
+    conditionNotes: String 
   }],
 
-  // Overall treatment progress
   progress: {
     totalMedicinesDue: Number,
     totalMedicinesTaken: Number,
@@ -106,7 +102,19 @@ const treatmentSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now,
-  }
+  },
+
+  doctor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Doctor',
+    default: null
+  },
+
+  summaries: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "TreatmentSummary"
+  }]
+
 });
 
 treatmentSchema.pre('save', function(next) {
@@ -133,5 +141,5 @@ treatmentSchema.methods.updateProgress = function() {
   this.progress.adherencePercentage = this.calculateAdherence();
 };
 
-const Treatment = mongoose.model('Treatment', treatmentSchema);
+const Treatment = mongoose.models.Treatment || mongoose.model("Treatment", treatmentSchema);
 export default Treatment;

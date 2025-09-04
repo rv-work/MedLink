@@ -10,6 +10,7 @@ import {
   Area,
   AreaChart,
 } from "recharts";
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -137,7 +138,7 @@ const Dashboard = () => {
       [lifestyleRowRef, { x: 100, opacity: 0 }, { x: 0, opacity: 1 }],
       [summaryRef, { y: 120, opacity: 0 }, { y: 0, opacity: 1 }],
     ];
-    items.forEach(([ref, from, to], i) => {
+    items.forEach(([ref, from, to]) => {
       if (ref.current)
         gsap.fromTo(ref.current, from, {
           ...to,

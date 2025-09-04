@@ -1,5 +1,6 @@
+import { Doctor } from '../Models/Doctor.js';
 import HealthReport from '../Models/HealthReport.js';
-import Treatment from '../Models/TreatMent.js';
+import Treatment from '../Models/Treatment.js';
 import { UserModel , Vitals } from '../Models/UserModel.js';
 import { DecryptArrayField  } from '../Utils/Encrypt.js';
 import { GoogleGenerativeAI  } from "@google/generative-ai";
@@ -141,7 +142,9 @@ export const UploadUserReportWeb3 = async (req, res) => {
       reportType,
       department,
       vitals,
-      ageAtReport
+      ageAtReport,
+      isIdAvailable,
+      doctorMedlinkId
     } = req.body;
 
     // Validation checks
@@ -169,6 +172,12 @@ export const UploadUserReportWeb3 = async (req, res) => {
         success: false,
         message: "Address Not Matched With Registered Address"
       });
+    }
+
+
+     let medId = "Not Availble";
+    if(isIdAvailable){
+     medId = doctorMedlinkId
     }
 
     // Parse medicines if it's a string
@@ -207,6 +216,7 @@ export const UploadUserReportWeb3 = async (req, res) => {
       diagnosisSummary,
       reasonOfCheckup,
       prescription,
+      doctorMedlinkId : medId,
       medicines: parsedMedicines || [],
       dateOfReport: new Date(dateOfReport),
       reportType: reportType || 'Other',
@@ -215,28 +225,25 @@ export const UploadUserReportWeb3 = async (req, res) => {
       ageAtReport: ageAtReport ? parseInt(ageAtReport) : undefined,
       type: "web3",
       blockchainTxHash: "pending",
-      attachments: [] // Files will be stored on blockchain/IPFS only
+      attachments: [] 
     });
 
     const savedReport = await newReport.save();
 
-    // Update user's reports array
     const updatedUser = await UserModel.findByIdAndUpdate(
       req.user._id,
       { $push: { reports: savedReport._id } },
       { new: true }
     );
 
-    // Update user vitals if provided
     if (Object.keys(parsedVitals).length > 0) {
       await updateUserVitalsFromReport(req.user._id, parsedVitals, dateOfReport);
     }
 
-    // Create treatment if medicines are present
     let treatment = null;
     if (parsedMedicines && parsedMedicines.length > 0) {
       try {
-        treatment = await createTreatmentFromReport(savedReport._id, req.user._id);
+        treatment = await createTreatmentFromReport(savedReport._id, req.user._id );
       } catch (treatmentError) {
         console.warn('Failed to create treatment:', treatmentError.message);
         // Don't fail the whole request if treatment creation fails
@@ -370,8 +377,8 @@ const generateDailySchedule = (medicines, startDate, totalDays) => {
   return days;
 };
 
-// Create treatment from health report
-export const createTreatmentFromReport = async (reportId, userId) => {
+
+export const createTreatmentFromReport = async (reportId, userId ) => {
   try {
     const healthReport = await HealthReport.findById(reportId);
     if (!healthReport) {
@@ -404,8 +411,28 @@ export const createTreatmentFromReport = async (reportId, userId) => {
 
     const days = generateDailySchedule(medicines, startDate, totalDays);
 
-    // Calculate initial progress
     const totalMedicinesDue = days.reduce((sum, day) => sum + day.totalMedicinesToTake, 0);
+
+
+
+    let doctorRef = null;
+
+    if (healthReport.doctorMedlinkId) {
+      const doctor = await Doctor.findOne({
+        doctorMedlinkId: healthReport.doctorMedlinkId,
+      });
+
+      if (doctor) {
+        doctorRef = doctor._id; 
+      } else {
+        console.warn(
+          "⚠️ No doctor found with this MedlinkId:",
+          healthReport.doctorMedlinkId
+        );
+      }
+    }
+    
+
 
     const newTreatment = new Treatment({
       owner: userId,
@@ -418,6 +445,7 @@ export const createTreatmentFromReport = async (reportId, userId) => {
       totalDays,
       medicines,
       days,
+      doctor: doctorRef,
       dailyNotes: [{
         date: startDate,
         notes: [{
@@ -431,10 +459,24 @@ export const createTreatmentFromReport = async (reportId, userId) => {
         totalMedicinesDue,
         totalMedicinesTaken: 0,
         adherencePercentage: 0
-      }
+      },
+       doctorNotes: [{
+        message: "Please take care ",
+        fordate: startDate
+      }]
     });
 
     const savedTreatment = await newTreatment.save();
+
+
+    if (doctorRef) {
+      await Doctor.findByIdAndUpdate(doctorRef, {
+        $push: { treatments: savedTreatment._id },
+      });
+    }
+
+
+
     return savedTreatment;
   } catch (error) {
     throw error;
@@ -456,7 +498,9 @@ export const UploadUserReportWeb2 = async (req, res) => {
       reportType,
       department,
       vitals,
-      ageAtReport
+      ageAtReport,
+      isIdAvailable,
+      doctorMedlinkId
     } = req.body;
 
     if (!req.user) {
@@ -479,6 +523,15 @@ export const UploadUserReportWeb2 = async (req, res) => {
         message: "Please upload at least one report file"
       });
     }
+    
+
+    let medId = "Not Availble";
+    if(isIdAvailable){
+     medId = doctorMedlinkId
+    }
+    
+
+    
 
     let parsedMedicines = medicines;
     if (typeof medicines === 'string') {
@@ -533,6 +586,7 @@ export const UploadUserReportWeb2 = async (req, res) => {
       diagnosisSummary,
       reasonOfCheckup,
       prescription,
+      doctorMedlinkId : medId,
       medicines: parsedMedicines || [],
       dateOfReport: new Date(dateOfReport),
       attachments,
@@ -558,7 +612,7 @@ export const UploadUserReportWeb2 = async (req, res) => {
     let treatment = null;
     if (parsedMedicines && parsedMedicines.length > 0) {
       try {
-        treatment = await createTreatmentFromReport(savedReport._id, req.user._id);
+        treatment = await createTreatmentFromReport(savedReport._id, req.user._id );
       } catch (treatmentError) {
         console.warn('Failed to create treatment:', treatmentError.message);
         // Don't fail the whole request if treatment creation fails

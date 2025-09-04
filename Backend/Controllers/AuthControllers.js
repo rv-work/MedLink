@@ -69,7 +69,7 @@ export const Signup = async (req, res) => {
       weightRecords: [{ value: weight, date: new Date() }],
       heightRecords: [{ value: height, date: new Date() }],
       bloodGroup,
-      walletAddress: "0x2722dACE7d4F568e39C448e81537487fd0EFf7cd",
+      walletAddress: "0xde434bEd30c2a032C8bc3D6C6B3C29f4419860AF",
       faceDescriptor
     });
 

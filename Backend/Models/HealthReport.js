@@ -67,7 +67,11 @@ department: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   }],
- 
+
+ doctorMedlinkId: {
+  type: String,
+  index: true  
+}
 });
 
 const HealthReport = mongoose.model('HealthReport', healthReportSchema);

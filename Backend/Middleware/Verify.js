@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { UserModel } from '../Models/UserModel.js';
+import { Doctor } from '../Models/Doctor.js';
 
 export const VerifyToken = async (req, res, next) => {
   try {
@@ -17,6 +18,26 @@ export const VerifyToken = async (req, res, next) => {
     const decoded = jwt.verify(token, 'secretkey');
 
     req.user = await UserModel.findById(decoded.id).select('-password');
+    next();
+  } catch (err) {
+    console.error(err);
+    res.status(401).json({ msg: 'Token is not valid' });
+  }
+};
+
+
+export const VerifyDoctor = async (req, res, next) => {
+  try {
+    const user = req.user; 
+
+    const isDoctor = await Doctor.findOne({user : user._id})
+
+    if(!isDoctor){
+      return  res.status(401).json({  msg: 'No Doctor Found' });
+    }
+
+    req.doctor = await Doctor.findById(isDoctor._id);
+    
     next();
   } catch (err) {
     console.error(err);

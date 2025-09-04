@@ -1,3 +1,4 @@
+// App.jsx - Add new routes
 import { Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -12,10 +13,19 @@ import ReportInDeatil from "./pages/ReportInDeatil";
 import Emergency from "./pages/Emergency";
 import ChatWithReport from "./pages/ChatWithReport";
 import EnableEmergency from "./pages/EnableEmergency";
-import EmergencyMatches from "./pages/EmergencyMatches";
+// import EmergencyMatches from "./pages/EmergencyMatches";
 import MedicalChatPage from "./pages/MedChat";
 import CriticalData from "./pages/CriticalData";
 import TreatmentDashboard from "./pages/Current";
+import RegisterDoctor from "./pages/RegisterDoctor";
+import DoctorDashboard from "./pages/DoctorDashboard";
+import DoctorAllTreatments from "./pages/DoctorAllTreatments";
+import DoctorTreatmentDetail from "./pages/DoctorTreatmentDeatial";
+import RequestConsultant from "./pages/RequestConsultant";
+import ConsultantRequests from "./pages/ConsultantRequests";
+import WaitingForDoctor from "./pages/WaitingForDoctor";
+import PatientConsultation from "./pages/PatientConsultation";
+import DoctorConsultation from "./pages/DoctorConsultation";
 
 function App() {
   return (
@@ -39,6 +49,31 @@ function App() {
           element={<CriticalData />}
         />
         <Route path="/current" element={<TreatmentDashboard />} />
+        <Route path="/register-doctor" element={<RegisterDoctor />} />
+        <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
+        <Route
+          path="/doctor-all-treatments"
+          element={<DoctorAllTreatments />}
+        />
+        <Route
+          path="/doctor-treatment/:treatmentId"
+          element={<DoctorTreatmentDetail />}
+        />
+
+        {/* Consultation Routes */}
+        <Route path="/request-consultant" element={<RequestConsultant />} />
+        <Route path="/waiting-for-doctor" element={<WaitingForDoctor />} />
+        <Route
+          path="/patient/consultation/:consultationId"
+          element={<PatientConsultation />}
+        />
+
+        {/* Doctor Consultation Routes */}
+        <Route path="/doctor/consultants" element={<ConsultantRequests />} />
+        <Route
+          path="/doctor/consultation/:consultationId"
+          element={<DoctorConsultation />}
+        />
       </Routes>
       <Footer />
     </>
@@ -46,5 +81,3 @@ function App() {
 }
 
 export default App;
-
-// 689af0f99107bb161d32d974

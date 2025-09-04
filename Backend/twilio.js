@@ -82,7 +82,7 @@ export async function makeCall() {
               </Say>
             </Response>`,
       from: process.env.TWILIO_PHONE_NUMBER, // Your Twilio number
-      to: "+91 74994 54264",       // Your phone number
+      to: "+919219343631",       // Your phone number
     });
 
     console.log("Call initiated ✅ SID:", call.sid);
@@ -92,8 +92,8 @@ export async function makeCall() {
 }
 
 
- sendSMS();
-//  sendWhatsApp();
-//  makeCall()
+//  sendSMS();
+// //  sendWhatsApp();
+ makeCall()
 
 
