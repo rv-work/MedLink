@@ -221,6 +221,10 @@ const PatientConsultation = () => {
             setCallStatus("connected");
             setReconnectAttempts(0);
             isProcessingOfferRef.current = false; // Reset processing flag
+
+            // Notify server about successful connection
+            socketRef.current?.emit("connection-established", consultationId);
+
             if (reconnectTimeoutRef.current) {
               clearTimeout(reconnectTimeoutRef.current);
             }

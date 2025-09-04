@@ -227,6 +227,10 @@ const DoctorConsultation = () => {
             setCallStatus("connected");
             setReconnectAttempts(0);
             isCreatingOfferRef.current = false; // Reset offer flag
+
+            // Notify server about successful connection
+            socketRef.current?.emit("connection-established", consultationId);
+
             if (reconnectTimeoutRef.current) {
               clearTimeout(reconnectTimeoutRef.current);
             }

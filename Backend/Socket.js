@@ -1,180 +1,220 @@
-import { Server } from 'socket.io';
+import socketIo from 'socket.io';
+
+// Store consultation states to prevent race conditions
+const consultationStates = new Map();
 
 export const initializeSocket = (server) => {
-    const io = new Server(server, {
-        cors: {
-            origin: ["http://localhost:5173", "https://med-link-rvn.vercel.app"],
-            methods: ["GET", "POST"],
-            credentials: true
-}});
+  const io = socketIo(server, {
+    cors: {
+      origin: ["http://localhost:3000", "https://medlink-frontend.vercel.app"],
+      methods: ["GET", "POST"],
+      credentials: true
+    }
+  });
 
-    const consultationRooms = new Map();
+  io.on('connection', (socket) => {
+    console.log('User connected:', socket.id);
 
-    io.on('connection', (socket) => {
-        console.log('User connected:', socket.id);
-
-        socket.on('join-consultation', (consultationId) => {
-            socket.join(consultationId);
-            if (!consultationRooms.has(consultationId)) {
-                consultationRooms.set(consultationId, { 
-                    doctor: null, 
-                    patient: null,
-                    doctorReady: false,
-                    patientReady: false
-                });
-            }
-            console.log(`User ${socket.id} joined consultation ${consultationId}`);
+    // Join consultation room
+    socket.on('join-consultation', (consultationId) => {
+      console.log(`User ${socket.id} joined consultation ${consultationId}`);
+      socket.join(consultationId);
+      
+      // Initialize consultation state if not exists
+      if (!consultationStates.has(consultationId)) {
+        consultationStates.set(consultationId, {
+          doctor: null,
+          patient: null,
+          isConnected: false,
+          isNegotiating: false,
+          lastOfferTime: 0
         });
-
-        // Doctor joins and notifies patient
-        socket.on('doctor-joined', (consultationId) => {
-            const room = consultationRooms.get(consultationId);
-            if (room) {
-                room.doctor = socket.id;
-                room.doctorReady = true;
-
-                console.log(`Doctor ${socket.id} joined consultation ${consultationId}`);
-                
-                // Notify all participants in the room
-                io.to(consultationId).emit('doctor-joined', {
-                    consultationId,
-                    doctorId: socket.id
-                });
-
-                // Only start signaling if patient is also ready
-                if (room.patientReady && room.doctorReady) {
-                    console.log('Both doctor and patient ready, doctor will create offer');
-                    // Tell doctor to create offer
-                    socket.emit('create-offer', consultationId);
-                }
-            }
-        });
-
-        // Patient is ready for connection  
-        socket.on('patient-ready', (consultationId) => {
-            const room = consultationRooms.get(consultationId);
-            if (room) {
-                room.patient = socket.id;
-                room.patientReady = true;
-
-                console.log(`Patient ${socket.id} ready for consultation ${consultationId}`);
-                
-                // Notify all participants in the room
-                io.to(consultationId).emit('patient-ready', {
-                    consultationId,
-                    patientId: socket.id
-                });
-
-                // Only start signaling if doctor is also ready
-                if (room.patientReady && room.doctorReady) {
-                    console.log('Both doctor and patient ready, doctor will create offer');
-                    // Tell doctor to create offer
-                    io.to(consultationId).emit('create-offer', consultationId);
-                }
-            }
-        });
-
-        // WebRTC signaling - Offer from doctor to patient
-        socket.on('offer', ({ offer, consultationId }) => {
-            console.log(`Relaying offer for consultation ${consultationId}`);
-            socket.to(consultationId).emit('offer', {
-                offer,
-                consultationId,
-                from: socket.id
-            });
-        });
-
-        // WebRTC signaling - Answer from patient to doctor
-        socket.on('answer', ({ answer, consultationId }) => {
-            console.log(`Relaying answer for consultation ${consultationId}`);
-            socket.to(consultationId).emit('answer', {
-                answer,
-                consultationId,
-                from: socket.id
-            });
-        });
-
-        // ICE candidates exchange
-        socket.on('ice-candidate', ({ candidate, consultationId, from }) => {
-            console.log(`Relaying ICE candidate for consultation ${consultationId} from ${from}`);
-            socket.to(consultationId).emit('ice-candidate', {
-                candidate,
-                consultationId,
-                from
-            });
-        });
-
-        // ICE restart signaling
-        socket.on('ice-restart-offer', ({ offer, consultationId, from }) => {
-            console.log(`Relaying ICE restart offer for consultation ${consultationId} from ${from}`);
-            socket.to(consultationId).emit('ice-restart-offer', {
-                offer,
-                consultationId,
-                from
-            });
-        });
-
-        socket.on('ice-restart-answer', ({ answer, consultationId, from }) => {
-            console.log(`Relaying ICE restart answer for consultation ${consultationId} from ${from}`);
-            socket.to(consultationId).emit('ice-restart-answer', {
-                answer,
-                consultationId,
-                from
-            });
-        });
-
-        // Call termination
-        socket.on('end-call', (consultationId) => {
-            console.log(`Call ended for consultation ${consultationId}`);
-            socket.to(consultationId).emit('call-ended');
-        });
-
-        // Consultation completion
-        socket.on('consultation-completed', (consultationId) => {
-            console.log(`Consultation completed: ${consultationId}`);
-            socket.to(consultationId).emit('consultation-completed');
-        });
-
-        // Handle disconnection
-        socket.on('disconnect', () => {
-            console.log('User disconnected:', socket.id);
-            // Clean up consultation rooms
-            for (const [consultationId, room] of consultationRooms.entries()) {
-                if (room.doctor === socket.id || room.patient === socket.id) {
-                    // Notify other participant about disconnection
-                    socket.to(consultationId).emit('participant-disconnected');
-                    
-                    // Reset room or delete if both participants left
-                    if (room.doctor === socket.id) {
-                        room.doctor = null;
-                        room.doctorReady = false;
-                    }
-                    if (room.patient === socket.id) {
-                        room.patient = null;
-                        room.patientReady = false;
-                    }
-                    
-                    // Remove room if empty
-                    if (!room.doctor && !room.patient) {
-                        consultationRooms.delete(consultationId);
-                        console.log(`Cleaned up consultation room: ${consultationId}`);
-                    }
-                }
-            }
-        });
-
-        // Handle connection errors
-        socket.on('error', (error) => {
-            console.error('Socket error:', error);
-        });
+      }
     });
 
-    // Log active rooms periodically (for debugging)
-    setInterval(() => {
-        if (consultationRooms.size > 0) {
-            console.log('Active consultation rooms:', consultationRooms.size);
-        }
-    }, 30000); // Every 30 seconds
+    // Doctor joined the consultation
+    socket.on('doctor-joined', (consultationId) => {
+      console.log(`Doctor ${socket.id} joined consultation ${consultationId}`);
+      
+      const state = consultationStates.get(consultationId);
+      if (state) {
+        state.doctor = socket.id;
+        consultationStates.set(consultationId, state);
+      }
+      
+      // Notify others that doctor joined
+      socket.to(consultationId).emit('doctor-joined');
+    });
 
-    return io;
+    // Patient ready to start call
+    socket.on('patient-ready', (consultationId) => {
+      console.log(`Patient ${socket.id} is ready for consultation ${consultationId}`);
+      
+      const state = consultationStates.get(consultationId);
+      if (!state) return;
+
+      state.patient = socket.id;
+      
+      // Only proceed if not already connected and not currently negotiating
+      if (!state.isConnected && !state.isNegotiating) {
+        // Prevent multiple simultaneous negotiations
+        const now = Date.now();
+        if (now - state.lastOfferTime < 5000) { // 5 second cooldown
+          console.log(`Skipping offer creation - too recent (${now - state.lastOfferTime}ms ago)`);
+          return;
+        }
+
+        state.isNegotiating = true;
+        state.lastOfferTime = now;
+        consultationStates.set(consultationId, state);
+
+        console.log(`Requesting doctor to create offer for consultation ${consultationId}`);
+        
+        // Tell doctor to create offer only if doctor is present
+        if (state.doctor) {
+          io.to(state.doctor).emit('create-offer');
+        }
+      } else if (state.isConnected) {
+        console.log(`Consultation ${consultationId} is already connected`);
+      } else if (state.isNegotiating) {
+        console.log(`Consultation ${consultationId} is already negotiating`);
+      }
+    });
+
+    // Handle WebRTC offer
+    socket.on('offer', ({ offer, consultationId }) => {
+      console.log(`Received offer for consultation ${consultationId}`);
+      
+      const state = consultationStates.get(consultationId);
+      if (!state) return;
+
+      // Forward offer to patient
+      if (state.patient) {
+        io.to(state.patient).emit('offer', { offer });
+      }
+    });
+
+    // Handle WebRTC answer
+    socket.on('answer', ({ answer, consultationId }) => {
+      console.log(`Received answer for consultation ${consultationId}`);
+      
+      const state = consultationStates.get(consultationId);
+      if (!state) return;
+
+      // Forward answer to doctor
+      if (state.doctor) {
+        io.to(state.doctor).emit('answer', { answer });
+      }
+
+      // Mark as no longer negotiating since we have answer
+      state.isNegotiating = false;
+      consultationStates.set(consultationId, state);
+    });
+
+    // Handle ICE candidates
+    socket.on('ice-candidate', ({ candidate, consultationId, from }) => {
+      console.log(`Received ICE candidate from ${from} for consultation ${consultationId}`);
+      
+      // Forward to the other participant
+      socket.to(consultationId).emit('ice-candidate', { candidate, from });
+    });
+
+    // Handle ICE restart
+    socket.on('ice-restart-offer', ({ offer, consultationId, from }) => {
+      console.log(`Received ICE restart offer from ${from} for consultation ${consultationId}`);
+      
+      // Forward to the other participant
+      socket.to(consultationId).emit('ice-restart-offer', { offer, from });
+    });
+
+    socket.on('ice-restart-answer', ({ answer, consultationId, from }) => {
+      console.log(`Received ICE restart answer from ${from} for consultation ${consultationId}`);
+      
+      // Forward to the other participant
+      socket.to(consultationId).emit('ice-restart-answer', { answer, from });
+    });
+
+    // Handle connection success notification
+    socket.on('connection-established', (consultationId) => {
+      console.log(`WebRTC connection established for consultation ${consultationId}`);
+      
+      const state = consultationStates.get(consultationId);
+      if (state) {
+        state.isConnected = true;
+        state.isNegotiating = false;
+        consultationStates.set(consultationId, state);
+      }
+    });
+
+    // Handle call end
+    socket.on('end-call', (consultationId) => {
+      console.log(`Call ended for consultation ${consultationId}`);
+      
+      // Notify other participant
+      socket.to(consultationId).emit('call-ended');
+      
+      // Clean up consultation state
+      consultationStates.delete(consultationId);
+    });
+
+    // Handle consultation completion
+    socket.on('consultation-completed', (consultationId) => {
+      console.log(`Consultation ${consultationId} completed`);
+      
+      // Notify other participant
+      socket.to(consultationId).emit('consultation-completed');
+      
+      // Clean up consultation state
+      consultationStates.delete(consultationId);
+    });
+
+    // Handle disconnection
+    socket.on('disconnect', () => {
+      console.log('User disconnected:', socket.id);
+      
+      // Clean up states where this socket was a participant
+      for (const [consultationId, state] of consultationStates.entries()) {
+        if (state.doctor === socket.id || state.patient === socket.id) {
+          // Notify other participant about disconnection
+          socket.to(consultationId).emit('participant-disconnected', socket.id);
+          
+          // Reset the disconnected participant
+          if (state.doctor === socket.id) {
+            state.doctor = null;
+          }
+          if (state.patient === socket.id) {
+            state.patient = null;
+          }
+          
+          // If both are gone, clean up
+          if (!state.doctor && !state.patient) {
+            consultationStates.delete(consultationId);
+          } else {
+            state.isConnected = false;
+            state.isNegotiating = false;
+            consultationStates.set(consultationId, state);
+          }
+        }
+      }
+    });
+
+    // Debug endpoint to check consultation states
+    socket.on('get-consultation-state', (consultationId) => {
+      const state = consultationStates.get(consultationId);
+      socket.emit('consultation-state', { consultationId, state });
+    });
+  });
+
+  // Periodic cleanup of old consultation states (every 30 minutes)
+  setInterval(() => {
+    const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
+    for (const [consultationId, state] of consultationStates.entries()) {
+      if (state.lastOfferTime < thirtyMinutesAgo && !state.isConnected) {
+        console.log(`Cleaning up stale consultation state: ${consultationId}`);
+        consultationStates.delete(consultationId);
+      }
+    }
+  }, 30 * 60 * 1000);
+
+  return io;
 };
