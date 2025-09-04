@@ -28,69 +28,108 @@ const VideoCall = () => {
   ];
 
   useEffect(() => {
-    initializeSocket();
-    fetchConsultation();
+    console.log("🔄 Component mounted, consultationId:", consultationId);
+
+    if (consultationId) {
+      initializeSocket();
+      fetchConsultation();
+    }
 
     return () => {
+      console.log("🧹 Cleaning up component...");
       cleanup();
     };
   }, [consultationId]);
 
+  // Separate useEffect for WebRTC initialization after role is set
+  useEffect(() => {
+    if (userRole && !peerConnectionRef.current && !loading) {
+      console.log("🎥 Initializing WebRTC for role:", userRole);
+      initializeWebRTC();
+    }
+  }, [userRole, loading]);
+
   const initializeSocket = () => {
-    // Connect to your Socket.IO server
+    console.log("🔌 Initializing socket connection...");
+
     socketRef.current = io("https://medlink-bh5c.onrender.com", {
       withCredentials: true,
+      transports: ["websocket", "polling"],
+      timeout: 20000,
+      forceNew: true,
     });
 
     const socket = socketRef.current;
 
     socket.on("connect", () => {
-      console.log("Connected to Socket.IO server");
+      console.log("✅ Connected to Socket.IO server, ID:", socket.id);
+      setMessage("Connected to server");
       socket.emit("join-consultation", consultationId);
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("❌ Socket connection error:", error);
+      setMessage("Connection failed: " + error.message);
+      setCallStatus("error");
+    });
+
+    socket.on("disconnect", (reason) => {
+      console.log("🔌 Socket disconnected:", reason);
+      setMessage("Disconnected from server");
     });
 
     // Listen for doctor joining
     socket.on("doctor-joined", () => {
-      console.log("Doctor joined the consultation");
+      console.log("👨‍⚕️ Doctor joined the consultation");
       setRemoteUserConnected(true);
+      setMessage("Doctor joined the consultation");
     });
 
     // Listen for create offer request (doctor only)
     socket.on("create-offer", async () => {
+      console.log("📞 Received create-offer request");
       if (userRole === "doctor") {
+        console.log("👨‍⚕️ Doctor creating offer...");
         await createOffer();
       }
     });
 
     // Listen for offer (patient only)
     socket.on("offer", async ({ offer }) => {
+      console.log("📨 Received offer");
       if (userRole === "patient") {
+        console.log("👤 Patient handling offer...");
         await handleOffer(offer);
       }
     });
 
     // Listen for answer (doctor only)
     socket.on("answer", async ({ answer }) => {
+      console.log("📬 Received answer");
       if (userRole === "doctor") {
+        console.log("👨‍⚕️ Doctor handling answer...");
         await handleAnswer(answer);
       }
     });
 
     // Listen for ICE candidates
     socket.on("ice-candidate", async ({ candidate, from }) => {
+      console.log("🧊 Received ICE candidate from:", from);
       if (from !== currentUserIdRef.current && peerConnectionRef.current) {
         try {
           await peerConnectionRef.current.addIceCandidate(
             new RTCIceCandidate(candidate)
           );
+          console.log("✅ ICE candidate added successfully");
         } catch (error) {
-          console.error("Error adding ICE candidate:", error);
+          console.error("❌ Error adding ICE candidate:", error);
         }
       }
     });
 
     // Listen for call ended
     socket.on("call-ended", () => {
+      console.log("📞 Call ended by other participant");
       setCallStatus("ended");
       setMessage("Call ended by other participant");
       cleanup();
@@ -98,12 +137,14 @@ const VideoCall = () => {
 
     // Listen for participant disconnected
     socket.on("participant-disconnected", () => {
+      console.log("👤 Other participant disconnected");
       setRemoteUserConnected(false);
       setMessage("Other participant disconnected");
     });
 
     // Listen for consultation completed
     socket.on("consultation-completed", () => {
+      console.log("✅ Consultation completed");
       setMessage("Consultation completed successfully!");
       setTimeout(() => {
         if (userRole === "patient") {
@@ -114,24 +155,37 @@ const VideoCall = () => {
   };
 
   const cleanup = () => {
+    console.log("🧹 Cleaning up resources...");
+
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current.getTracks().forEach((track) => {
+        console.log("🛑 Stopping track:", track.kind);
+        track.stop();
+      });
       localStreamRef.current = null;
     }
+
     if (peerConnectionRef.current) {
       try {
         peerConnectionRef.current.close();
-      } catch (e) {}
+        console.log("🔒 Peer connection closed");
+      } catch (e) {
+        console.error("Error closing peer connection:", e);
+      }
       peerConnectionRef.current = null;
     }
+
     if (socketRef.current) {
       socketRef.current.disconnect();
+      console.log("🔌 Socket disconnected");
       socketRef.current = null;
     }
   };
 
   const fetchConsultation = async () => {
     try {
+      console.log("📊 Fetching consultation data...");
+
       const response = await axios.get(
         `https://medlink-bh5c.onrender.com/api/consultation/${consultationId}`,
         { withCredentials: true }
@@ -142,33 +196,41 @@ const VideoCall = () => {
         setConsultation(consultationData);
         setNotes(consultationData.notes || "");
 
-        // Determine user role and current user ID
-        const token = document.cookie
-          .split("; ")
-          .find((row) => row.startsWith("token="))
-          ?.split("=")[1];
+        console.log("✅ Consultation data fetched:", consultationData);
 
-        if (token) {
-          // Decode JWT to get user ID (simplified - you might want to use a proper JWT library)
-          const payload = JSON.parse(atob(token.split(".")[1]));
-          currentUserIdRef.current = payload._id;
+        // Try to get current user ID from token
+        try {
+          const token = document.cookie
+            .split("; ")
+            .find((row) => row.startsWith("token="))
+            ?.split("=")[1];
 
-          if (
-            consultationData.doctor &&
-            payload._id === consultationData.doctor._id
-          ) {
-            setUserRole("doctor");
-          } else {
-            setUserRole("patient");
+          if (token) {
+            const payload = JSON.parse(atob(token.split(".")[1]));
+            currentUserIdRef.current = payload._id;
+            console.log("👤 Current user ID:", payload._id);
+
+            if (
+              consultationData.doctor &&
+              payload._id === consultationData.doctor._id
+            ) {
+              setUserRole("doctor");
+              console.log("✅ User role set: doctor");
+            } else {
+              setUserRole("patient");
+              console.log("✅ User role set: patient");
+            }
           }
+        } catch (tokenError) {
+          console.error("❌ Error parsing token:", tokenError);
+          // Fallback: try to determine role from consultation data
+          // You might need to implement a /api/user/me endpoint
+          setMessage("Unable to determine user role. Please refresh.");
         }
-
-        // Initialize WebRTC after we know the user role
-        await initializeWebRTC();
       }
     } catch (error) {
-      console.error("Error fetching consultation:", error);
-      setMessage("Error fetching consultation details");
+      console.error("❌ Error fetching consultation:", error);
+      setMessage("Error fetching consultation details: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -176,6 +238,8 @@ const VideoCall = () => {
 
   const initializeWebRTC = async () => {
     try {
+      console.log("🎥 Initializing WebRTC...");
+
       // Get user media
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -190,7 +254,9 @@ const VideoCall = () => {
         },
       });
 
+      console.log("✅ Got user media stream");
       localStreamRef.current = stream;
+
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
@@ -202,18 +268,22 @@ const VideoCall = () => {
       });
       peerConnectionRef.current = peerConnection;
 
+      console.log("✅ Peer connection created");
+
       // Add local stream to peer connection
       stream.getTracks().forEach((track) => {
         peerConnection.addTrack(track, stream);
+        console.log("➕ Added track to peer connection:", track.kind);
       });
 
       // Handle remote stream
       peerConnection.ontrack = (event) => {
-        console.log("Received remote stream");
+        console.log("📡 Received remote stream");
         if (remoteVideoRef.current && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
           setRemoteUserConnected(true);
           setCallStatus("connected");
+          setMessage("Connected successfully!");
 
           // Notify server about successful connection
           socketRef.current?.emit("connection-established", consultationId);
@@ -223,57 +293,85 @@ const VideoCall = () => {
       // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
         if (event.candidate && socketRef.current) {
+          console.log("🧊 Sending ICE candidate");
           socketRef.current.emit("ice-candidate", {
             candidate: event.candidate.toJSON(),
             consultationId,
             from: currentUserIdRef.current,
           });
+        } else if (!event.candidate) {
+          console.log("🧊 ICE gathering complete");
         }
       };
 
       // Handle connection state changes
       peerConnection.onconnectionstatechange = () => {
         const state = peerConnection.connectionState;
-        console.log("Connection state:", state);
+        console.log("🔄 Connection state changed to:", state);
 
         switch (state) {
           case "connecting":
             setCallStatus("connecting");
+            setMessage("Connecting...");
             break;
           case "connected":
             setCallStatus("connected");
+            setMessage("Connected successfully!");
             break;
           case "disconnected":
             setCallStatus("disconnected");
+            setMessage("Connection lost");
             break;
           case "failed":
             setCallStatus("failed");
+            setMessage("Connection failed");
             break;
           case "closed":
             setCallStatus("ended");
+            setMessage("Call ended");
             break;
         }
       };
 
-      setCallStatus("ready");
+      // Handle ICE connection state changes
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log(
+          "🧊 ICE connection state:",
+          peerConnection.iceConnectionState
+        );
+      };
 
-      // Notify server about role
+      setCallStatus("ready");
+      setMessage("Ready to start call");
+
+      // Notify server about role after WebRTC is ready
       if (userRole === "doctor") {
+        console.log("👨‍⚕️ Notifying server: doctor joined");
         socketRef.current?.emit("doctor-joined", consultationId);
       }
     } catch (error) {
-      console.error("Error initializing WebRTC:", error);
-      setMessage("Error accessing camera/microphone");
+      console.error("❌ Error initializing WebRTC:", error);
+      setMessage("Error accessing camera/microphone: " + error.message);
       setCallStatus("error");
     }
   };
 
   const createOffer = async () => {
     try {
-      if (!peerConnectionRef.current) return;
+      console.log("📞 Creating offer...");
 
-      const offer = await peerConnectionRef.current.createOffer();
+      if (!peerConnectionRef.current) {
+        console.error("❌ No peer connection");
+        return;
+      }
+
+      const offer = await peerConnectionRef.current.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true,
+      });
+
       await peerConnectionRef.current.setLocalDescription(offer);
+      console.log("✅ Offer created and set as local description");
 
       // Send offer via Socket.IO
       socketRef.current?.emit("offer", {
@@ -284,20 +382,28 @@ const VideoCall = () => {
       setCallStatus("waiting-for-answer");
       setMessage("Offer sent, waiting for patient to join...");
     } catch (error) {
-      console.error("Error creating offer:", error);
-      setMessage("Error creating offer");
+      console.error("❌ Error creating offer:", error);
+      setMessage("Error creating offer: " + error.message);
     }
   };
 
   const handleOffer = async (offer) => {
     try {
-      if (!peerConnectionRef.current) return;
+      console.log("📨 Handling received offer...");
+
+      if (!peerConnectionRef.current) {
+        console.error("❌ No peer connection");
+        return;
+      }
 
       await peerConnectionRef.current.setRemoteDescription(
         new RTCSessionDescription(offer)
       );
+      console.log("✅ Remote description set");
+
       const answer = await peerConnectionRef.current.createAnswer();
       await peerConnectionRef.current.setLocalDescription(answer);
+      console.log("✅ Answer created and set as local description");
 
       // Send answer via Socket.IO
       socketRef.current?.emit("answer", {
@@ -307,34 +413,66 @@ const VideoCall = () => {
 
       setMessage("Connected! You can start the conversation.");
     } catch (error) {
-      console.error("Error handling offer:", error);
-      setMessage("Error connecting to doctor");
+      console.error("❌ Error handling offer:", error);
+      setMessage("Error connecting to doctor: " + error.message);
     }
   };
 
   const handleAnswer = async (answer) => {
     try {
-      if (!peerConnectionRef.current) return;
+      console.log("📬 Handling received answer...");
+
+      if (!peerConnectionRef.current) {
+        console.error("❌ No peer connection");
+        return;
+      }
 
       await peerConnectionRef.current.setRemoteDescription(
         new RTCSessionDescription(answer)
       );
+      console.log("✅ Answer processed successfully");
+
       setCallStatus("connected");
       setMessage("Patient connected! You can start the consultation.");
     } catch (error) {
-      console.error("Error handling answer:", error);
-      setMessage("Error processing patient connection");
+      console.error("❌ Error handling answer:", error);
+      setMessage("Error processing patient connection: " + error.message);
     }
   };
 
   const startCall = () => {
+    console.log("🚀 Start call clicked");
+    console.log("📊 Current state:");
+    console.log("- User Role:", userRole);
+    console.log("- Socket connected:", socketRef.current?.connected);
+    console.log("- Call status:", callStatus);
+    console.log("- Consultation ID:", consultationId);
+
+    if (!socketRef.current || !socketRef.current.connected) {
+      console.error("❌ Socket not connected");
+      setMessage("Not connected to server. Please refresh the page.");
+      return;
+    }
+
+    if (!userRole) {
+      console.error("❌ User role not determined");
+      setMessage("User role not determined. Please refresh the page.");
+      return;
+    }
+
+    if (!peerConnectionRef.current) {
+      console.error("❌ WebRTC not initialized");
+      setMessage("Video system not ready. Please wait or refresh.");
+      return;
+    }
+
     if (userRole === "patient") {
-      // Patient signals readiness
-      socketRef.current?.emit("patient-ready", consultationId);
+      console.log("👤 Patient initiating call...");
+      socketRef.current.emit("patient-ready", consultationId);
       setMessage("Connecting to doctor...");
       setCallStatus("connecting");
     } else if (userRole === "doctor") {
-      // Doctor can manually trigger offer creation
+      console.log("👨‍⚕️ Doctor starting call manually...");
       createOffer();
     }
   };
@@ -344,6 +482,7 @@ const VideoCall = () => {
     if (videoTrack) {
       videoTrack.enabled = !videoTrack.enabled;
       setIsVideoEnabled(videoTrack.enabled);
+      console.log("🎥 Video toggled:", videoTrack.enabled ? "ON" : "OFF");
     }
   };
 
@@ -352,13 +491,16 @@ const VideoCall = () => {
     if (audioTrack) {
       audioTrack.enabled = !audioTrack.enabled;
       setIsAudioEnabled(audioTrack.enabled);
+      console.log("🎤 Audio toggled:", audioTrack.enabled ? "ON" : "OFF");
     }
   };
 
   const handleEndCall = () => {
+    console.log("📞 Ending call...");
     socketRef.current?.emit("end-call", consultationId);
     cleanup();
     setCallStatus("ended");
+    setMessage("Call ended");
 
     setTimeout(() => {
       if (userRole === "doctor") {
@@ -371,6 +513,8 @@ const VideoCall = () => {
 
   const handleCompleteConsultation = async () => {
     try {
+      console.log("✅ Completing consultation...");
+
       const response = await axios.put(
         `https://medlink-bh5c.onrender.com/api/consultation/status/${consultationId}`,
         { status: "completed", notes },
@@ -385,8 +529,8 @@ const VideoCall = () => {
         }, 2000);
       }
     } catch (error) {
-      console.error("Error completing consultation:", error);
-      setMessage("Error completing consultation");
+      console.error("❌ Error completing consultation:", error);
+      setMessage("Error completing consultation: " + error.message);
     }
   };
 
@@ -412,6 +556,11 @@ const VideoCall = () => {
             </h1>
             <p className="text-sm text-gray-600">
               Status: <span className="capitalize">{callStatus}</span>
+              {socketRef.current?.connected ? (
+                <span className="ml-2 text-green-600">● Online</span>
+              ) : (
+                <span className="ml-2 text-red-600">● Offline</span>
+              )}
             </p>
           </div>
           <div className="flex items-center space-x-4">
@@ -452,6 +601,11 @@ const VideoCall = () => {
                     muted
                     className="w-full h-full object-cover"
                   />
+                  {!isVideoEnabled && (
+                    <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+                      <span className="text-white text-sm">Video Off</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Connection Status Overlay */}
@@ -480,9 +634,16 @@ const VideoCall = () => {
                           ? "Ready to connect"
                           : callStatus === "connecting"
                           ? "Connecting..."
+                          : callStatus === "waiting-for-answer"
+                          ? "Waiting for response..."
                           : "Waiting for connection..."}
                       </h3>
                       <p className="text-gray-300">Status: {callStatus}</p>
+                      {!socketRef.current?.connected && (
+                        <p className="text-red-400 mt-2">
+                          Server connection lost - Please refresh
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -497,6 +658,7 @@ const VideoCall = () => {
                       ? "bg-gray-700 hover:bg-gray-600"
                       : "bg-red-600 hover:bg-red-500"
                   } text-white transition-colors`}
+                  title={isAudioEnabled ? "Mute Audio" : "Unmute Audio"}
                 >
                   <svg
                     className="w-6 h-6"
@@ -529,6 +691,7 @@ const VideoCall = () => {
                       ? "bg-gray-700 hover:bg-gray-600"
                       : "bg-red-600 hover:bg-red-500"
                   } text-white transition-colors`}
+                  title={isVideoEnabled ? "Turn Off Video" : "Turn On Video"}
                 >
                   <svg
                     className="w-6 h-6"
@@ -557,8 +720,12 @@ const VideoCall = () => {
                 {(callStatus === "ready" || callStatus === "initializing") && (
                   <button
                     onClick={startCall}
-                    className="px-6 py-3 bg-green-600 hover:bg-green-500 text-white rounded-full transition-colors"
-                    disabled={callStatus === "connecting"}
+                    className="px-6 py-3 bg-green-600 hover:bg-green-500 text-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={
+                      callStatus === "connecting" ||
+                      !socketRef.current?.connected ||
+                      !userRole
+                    }
                   >
                     {callStatus === "connecting"
                       ? "Connecting..."
@@ -569,6 +736,7 @@ const VideoCall = () => {
                 <button
                   onClick={handleEndCall}
                   className="p-3 rounded-full bg-red-600 hover:bg-red-500 text-white transition-colors"
+                  title="End Call"
                 >
                   <svg
                     className="w-6 h-6"
@@ -580,7 +748,7 @@ const VideoCall = () => {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 3l18 18"
+                      d="M6 18L18 6M6 6l12 12"
                     />
                   </svg>
                 </button>
@@ -604,6 +772,16 @@ const VideoCall = () => {
                           {consultation.patient?.name}
                         </p>
                       </div>
+                      {consultation.doctor && (
+                        <div>
+                          <span className="font-medium text-gray-700">
+                            Doctor:
+                          </span>
+                          <p className="text-gray-600">
+                            {consultation.doctor?.name}
+                          </p>
+                        </div>
+                      )}
                       <div>
                         <span className="font-medium text-gray-700">
                           Problem:
@@ -635,13 +813,34 @@ const VideoCall = () => {
                     </div>
                   </div>
 
+                  {/* Debug Information */}
+                  <div className="border-t pt-4">
+                    <h4 className="font-medium text-gray-900 mb-2">
+                      Debug Info
+                    </h4>
+                    <div className="text-xs text-gray-500 space-y-1">
+                      <p>Role: {userRole || "Unknown"}</p>
+                      <p>
+                        Socket:{" "}
+                        {socketRef.current?.connected
+                          ? "Connected"
+                          : "Disconnected"}
+                      </p>
+                      <p>
+                        WebRTC:{" "}
+                        {peerConnectionRef.current ? "Ready" : "Not Ready"}
+                      </p>
+                      <p>Status: {callStatus}</p>
+                    </div>
+                  </div>
+
                   {userRole === "doctor" && (
                     <div className="border-t pt-4">
                       <h4 className="font-medium text-gray-900 mb-2">Notes</h4>
                       <textarea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
-                        className="w-full h-32 p-3 border rounded-md resize-none"
+                        className="w-full h-32 p-3 border rounded-md resize-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         placeholder="Add consultation notes..."
                       />
                       <button
@@ -656,8 +855,17 @@ const VideoCall = () => {
               )}
 
               {message && (
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                  <p className="text-sm text-blue-700">{message}</p>
+                <div
+                  className={`mt-4 p-3 border rounded-md ${
+                    message.includes("Error") || message.includes("failed")
+                      ? "bg-red-50 border-red-200 text-red-700"
+                      : message.includes("success") ||
+                        message.includes("Connected")
+                      ? "bg-green-50 border-green-200 text-green-700"
+                      : "bg-blue-50 border-blue-200 text-blue-700"
+                  }`}
+                >
+                  <p className="text-sm">{message}</p>
                 </div>
               )}
             </div>
