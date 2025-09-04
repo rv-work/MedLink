@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import Treatment from "../Models/TreatMent.js";
+import Treatment from "../Models/Treatment.js";
 import {TreatmentSummary} from "../Models/Doctor.js";
 import { Doctor } from "../Models/Doctor.js";
 

@@ -1,5 +1,5 @@
 import { Doctor , TreatmentSummary } from "../Models/Doctor.js";
-import Treatment from "../Models/TreatMent.js";
+import Treatment from "../Models/Treatment.js";
 
 export const addDoctorMessage = async (req, res) => {
   const { summaryId } = req.params;
