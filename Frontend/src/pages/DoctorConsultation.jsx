@@ -22,6 +22,7 @@ const DoctorConsultation = () => {
   const pendingCandidatesRef = useRef([]);
   const reconnectTimeoutRef = useRef(null);
   const connectionTimeoutRef = useRef(null);
+  const isCreatingOfferRef = useRef(false); // Prevent multiple offers
 
   // Production-ready ICE servers with TURN
   const iceServers = [
@@ -130,7 +131,10 @@ const DoctorConsultation = () => {
     console.log(`Reconnection attempt ${reconnectAttempts + 1}`);
 
     try {
-      if (peerConnectionRef.current) {
+      if (
+        peerConnectionRef.current &&
+        peerConnectionRef.current.iceConnectionState === "failed"
+      ) {
         const offer = await peerConnectionRef.current.createOffer({
           iceRestart: true,
         });
@@ -222,6 +226,7 @@ const DoctorConsultation = () => {
             console.log("WebRTC connection established successfully");
             setCallStatus("connected");
             setReconnectAttempts(0);
+            isCreatingOfferRef.current = false; // Reset offer flag
             if (reconnectTimeoutRef.current) {
               clearTimeout(reconnectTimeoutRef.current);
             }
@@ -231,6 +236,7 @@ const DoctorConsultation = () => {
             break;
           case "disconnected":
             console.log("Connection disconnected, attempting reconnection");
+            if (callStatus !== "connected") return; // Don't reconnect if never connected
             setCallStatus("reconnecting");
             reconnectTimeoutRef.current = setTimeout(attemptReconnection, 2000);
             break;
@@ -247,7 +253,10 @@ const DoctorConsultation = () => {
 
       peerConnection.oniceconnectionstatechange = () => {
         console.log("ICE connection state:", peerConnection.iceConnectionState);
-        if (peerConnection.iceConnectionState === "failed") {
+        if (
+          peerConnection.iceConnectionState === "failed" &&
+          callStatus === "connected"
+        ) {
           attemptReconnection();
         }
       };
@@ -272,6 +281,18 @@ const DoctorConsultation = () => {
       // Socket event handlers
       socket.on("create-offer", async () => {
         try {
+          // Prevent multiple offers
+          if (
+            isCreatingOfferRef.current ||
+            peerConnection.connectionState === "connected"
+          ) {
+            console.log(
+              "Skipping offer creation - already creating or connected"
+            );
+            return;
+          }
+
+          isCreatingOfferRef.current = true;
           console.log("Creating offer for patient");
           setCallStatus("creating-offer");
 
@@ -302,18 +323,37 @@ const DoctorConsultation = () => {
         } catch (error) {
           console.error("Error creating offer:", error);
           setMessage("Error establishing connection");
+          isCreatingOfferRef.current = false;
         }
       });
 
       socket.on("answer", async ({ answer }) => {
         try {
           console.log("Received answer from patient");
+
+          // Check if we already have a remote description
+          if (peerConnection.remoteDescription) {
+            console.log("Already have remote description, skipping");
+            return;
+          }
+
           await peerConnection.setRemoteDescription(
             new RTCSessionDescription(answer)
           );
           console.log("Set remote description from answer");
           await processPendingCandidates();
           setCallStatus("connecting");
+
+          // Set a more reasonable connection timeout (30 seconds for ICE gathering)
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+          }
+          connectionTimeoutRef.current = setTimeout(() => {
+            if (peerConnection.connectionState !== "connected") {
+              console.log("Connection timeout after answer");
+              attemptReconnection();
+            }
+          }, 30000);
         } catch (error) {
           console.error("Error handling answer:", error);
         }
@@ -355,6 +395,14 @@ const DoctorConsultation = () => {
       socket.on("patient-ready", () => {
         console.log("Patient is ready, waiting for create-offer signal");
         setCallStatus("patient-connected");
+
+        // Only emit create-offer if not already creating one
+        if (
+          !isCreatingOfferRef.current &&
+          peerConnection.connectionState !== "connected"
+        ) {
+          socket.emit("create-offer", consultationId);
+        }
       });
 
       socket.on("call-ended", () => {
@@ -368,7 +416,9 @@ const DoctorConsultation = () => {
 
       socket.on("disconnect", () => {
         console.log("Socket disconnected");
-        setCallStatus("reconnecting");
+        if (callStatus === "connected") {
+          setCallStatus("reconnecting");
+        }
       });
 
       // Join consultation room and notify that doctor joined
@@ -376,14 +426,6 @@ const DoctorConsultation = () => {
       socket.emit("doctor-joined", consultationId);
 
       setCallStatus("waiting-for-patient");
-
-      // Add connection timeout
-      connectionTimeoutRef.current = setTimeout(() => {
-        if (callStatus !== "connected") {
-          console.log("Connection timeout, attempting reconnection");
-          attemptReconnection();
-        }
-      }, 15000); // 15 seconds timeout
     } catch (error) {
       console.error("Error initializing WebRTC:", error);
       setMessage(
