@@ -11,6 +11,7 @@ const PatientConsultation = () => {
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [message, setMessage] = useState("");
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -18,6 +19,20 @@ const PatientConsultation = () => {
   const localStreamRef = useRef(null);
   const socketRef = useRef(null);
   const pendingCandidatesRef = useRef([]);
+  const reconnectTimeoutRef = useRef(null);
+
+  // Production-ready ICE servers
+  const iceServers = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:global.stun.twilio.com:3478" },
+    {
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+  ];
 
   useEffect(() => {
     fetchConsultation();
@@ -29,6 +44,9 @@ const PatientConsultation = () => {
   }, [consultationId]);
 
   const cleanup = () => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop());
     }
@@ -63,12 +81,62 @@ const PatientConsultation = () => {
     }
   };
 
+  const processPendingCandidates = async () => {
+    for (const candidate of pendingCandidatesRef.current) {
+      try {
+        if (
+          peerConnectionRef.current &&
+          peerConnectionRef.current.remoteDescription
+        ) {
+          await peerConnectionRef.current.addIceCandidate(
+            new RTCIceCandidate(candidate)
+          );
+          console.log("Added pending ICE candidate");
+        }
+      } catch (error) {
+        console.error("Error adding pending candidate:", error);
+      }
+    }
+    pendingCandidatesRef.current = [];
+  };
+
+  const attemptReconnection = async () => {
+    if (reconnectAttempts >= 3) {
+      setCallStatus("error");
+      setMessage(
+        "Connection failed after multiple attempts. Please refresh and try again."
+      );
+      return;
+    }
+
+    setReconnectAttempts((prev) => prev + 1);
+    setCallStatus("reconnecting");
+
+    // Wait before attempting reconnection
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    try {
+      // Re-emit patient ready to trigger new offer
+      socketRef.current?.emit("patient-ready", consultationId);
+    } catch (error) {
+      console.error("Reconnection failed:", error);
+      reconnectTimeoutRef.current = setTimeout(attemptReconnection, 3000);
+    }
+  };
+
   const initializeWebRTC = async () => {
     try {
-      // Get user media first
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
+        video: {
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+          frameRate: { ideal: 30, max: 60 },
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
       });
 
       localStreamRef.current = stream;
@@ -76,56 +144,68 @@ const PatientConsultation = () => {
         localVideoRef.current.srcObject = stream;
       }
 
-      // Initialize Socket.IO connection
-      const socket = io("https://medlink-bh5c.onrender.com");
+      const socket = io("https://medlink-bh5c.onrender.com", {
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 5,
+        timeout: 20000,
+      });
       socketRef.current = socket;
 
-      // Initialize peer connection
       const peerConnection = new RTCPeerConnection({
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" },
-        ],
+        iceServers,
+        iceCandidatePoolSize: 10,
+        iceTransportPolicy: "all",
       });
 
       peerConnectionRef.current = peerConnection;
 
-      // Add local stream to peer connection
       stream.getTracks().forEach((track) => {
         peerConnection.addTrack(track, stream);
       });
 
-      // Handle remote stream
       peerConnection.ontrack = (event) => {
-        console.log("Received remote stream");
+        console.log("Received remote stream from doctor");
         if (remoteVideoRef.current && event.streams && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
           setCallStatus("connected");
+          setReconnectAttempts(0);
         }
       };
 
-      // Handle connection state changes
       peerConnection.onconnectionstatechange = () => {
         console.log("Connection state:", peerConnection.connectionState);
-        if (peerConnection.connectionState === "connected") {
-          setCallStatus("connected");
-        } else if (
-          peerConnection.connectionState === "failed" ||
-          peerConnection.connectionState === "disconnected"
-        ) {
-          setCallStatus("error");
+        switch (peerConnection.connectionState) {
+          case "connected":
+            setCallStatus("connected");
+            setReconnectAttempts(0);
+            if (reconnectTimeoutRef.current) {
+              clearTimeout(reconnectTimeoutRef.current);
+            }
+            break;
+          case "connecting":
+            setCallStatus("connecting");
+            break;
+          case "disconnected":
+            setCallStatus("reconnecting");
+            reconnectTimeoutRef.current = setTimeout(attemptReconnection, 2000);
+            break;
+          case "failed":
+            attemptReconnection();
+            break;
         }
       };
 
-      // Handle ICE connection state
       peerConnection.oniceconnectionstatechange = () => {
         console.log("ICE connection state:", peerConnection.iceConnectionState);
+        if (peerConnection.iceConnectionState === "failed") {
+          attemptReconnection();
+        }
       };
 
-      // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log("Sending ICE candidate");
+          console.log("Sending ICE candidate:", event.candidate.type);
           socket.emit("ice-candidate", {
             candidate: event.candidate,
             consultationId,
@@ -145,20 +225,12 @@ const PatientConsultation = () => {
           );
           console.log("Set remote description");
 
-          // Process any pending ICE candidates
-          for (const candidate of pendingCandidatesRef.current) {
-            await peerConnection.addIceCandidate(
-              new RTCIceCandidate(candidate)
-            );
-            console.log("Added pending ICE candidate");
-          }
-          pendingCandidatesRef.current = [];
+          await processPendingCandidates();
 
           const answer = await peerConnection.createAnswer();
           await peerConnection.setLocalDescription(answer);
           console.log("Created and set local description (answer)");
 
-          console.log("Sending answer to doctor");
           socket.emit("answer", {
             answer: peerConnection.localDescription,
             consultationId,
@@ -175,20 +247,39 @@ const PatientConsultation = () => {
       socket.on("ice-candidate", async ({ candidate, from }) => {
         try {
           if (from !== "patient") {
-            // Only process candidates from doctor
             if (peerConnection.remoteDescription) {
               await peerConnection.addIceCandidate(
                 new RTCIceCandidate(candidate)
               );
               console.log("Added ICE candidate from doctor");
             } else {
-              // Store candidates until remote description is set
               pendingCandidatesRef.current.push(candidate);
               console.log("Stored ICE candidate for later");
             }
           }
         } catch (err) {
           console.error("Error adding ICE candidate:", err);
+        }
+      });
+
+      // Handle ICE restart
+      socket.on("ice-restart-offer", async ({ offer, from }) => {
+        try {
+          if (from === "doctor") {
+            await peerConnection.setRemoteDescription(
+              new RTCSessionDescription(offer)
+            );
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            socket.emit("ice-restart-answer", {
+              answer: peerConnection.localDescription,
+              consultationId,
+              from: "patient",
+            });
+          }
+        } catch (error) {
+          console.error("Error handling ICE restart offer:", error);
         }
       });
 
@@ -202,6 +293,15 @@ const PatientConsultation = () => {
         handleEndCall();
       });
 
+      socket.on("connect", () => {
+        console.log("Socket connected");
+      });
+
+      socket.on("disconnect", () => {
+        console.log("Socket disconnected");
+        setCallStatus("reconnecting");
+      });
+
       // Join consultation room
       socket.emit("join-consultation", consultationId);
       socket.emit("patient-ready", consultationId);
@@ -209,7 +309,9 @@ const PatientConsultation = () => {
       setCallStatus("waiting-for-doctor");
     } catch (error) {
       console.error("Error initializing WebRTC:", error);
-      setMessage("Error accessing camera/microphone");
+      setMessage(
+        "Error accessing camera/microphone. Please check permissions and try again."
+      );
       setCallStatus("error");
     }
   };
@@ -240,6 +342,7 @@ const PatientConsultation = () => {
     }, 2000);
   };
 
+  // Rest of the component remains the same as your original...
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -294,6 +397,7 @@ const PatientConsultation = () => {
             }`}
           >
             {callStatus.replace("-", " ")}
+            {callStatus === "reconnecting" && ` (${reconnectAttempts}/3)`}
           </span>
         </div>
       </div>
@@ -344,6 +448,8 @@ const PatientConsultation = () => {
                     ? "Waiting for doctor..."
                     : callStatus === "waiting-for-connection"
                     ? "Connecting..."
+                    : callStatus === "reconnecting"
+                    ? "Reconnecting..."
                     : "Waiting..."}
                 </span>
               </div>
