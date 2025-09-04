@@ -286,6 +286,8 @@ const PatientConsultation = () => {
                 : callStatus === "connecting" ||
                   callStatus === "waiting-for-connection"
                 ? "bg-yellow-100 text-yellow-700"
+                : callStatus === "reconnecting"
+                ? "bg-orange-100 text-orange-700"
                 : callStatus === "waiting-for-doctor"
                 ? "bg-blue-100 text-blue-700"
                 : "bg-red-100 text-red-700"

@@ -100,6 +100,25 @@ export const initializeSocket = (server) => {
       });
     });
 
+    // ICE restart signaling
+    socket.on('ice-restart-offer', ({ offer, consultationId, from }) => {
+      console.log(`Relaying ICE restart offer for consultation ${consultationId} from ${from}`);
+      socket.to(consultationId).emit('ice-restart-offer', { 
+        offer, 
+        consultationId,
+        from 
+      });
+    });
+
+    socket.on('ice-restart-answer', ({ answer, consultationId, from }) => {
+      console.log(`Relaying ICE restart answer for consultation ${consultationId} from ${from}`);
+      socket.to(consultationId).emit('ice-restart-answer', { 
+        answer, 
+        consultationId,
+        from 
+      });
+    });
+
     // Call termination
     socket.on('end-call', (consultationId) => {
       console.log(`Call ended for consultation ${consultationId}`);
