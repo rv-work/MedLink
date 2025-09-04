@@ -1,7 +1,6 @@
 import cron from "node-cron";
+import {TreatmentSummary , Doctor} from "../Models/Doctor.js";
 import Treatment from "../Models/Treatment.js";
-import {TreatmentSummary} from "../Models/Doctor.js";
-import { Doctor } from "../Models/Doctor.js";
 
 export const startDailySummaryJob = () => {
 

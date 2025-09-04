@@ -142,4 +142,5 @@ treatmentSchema.methods.updateProgress = function() {
 };
 
 const Treatment =  mongoose.model("Treatment", treatmentSchema);
+
 export default Treatment;
