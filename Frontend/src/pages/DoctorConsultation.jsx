@@ -40,7 +40,7 @@ const DoctorConsultation = () => {
   const fetchConsultation = async () => {
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/consultation/${consultationId}`,
+        `https://medlink-bh5c.onrender.com/api/consultation/${consultationId}`,
         { withCredentials: true }
       );
 
@@ -67,7 +67,7 @@ const DoctorConsultation = () => {
         localVideoRef.current.srcObject = stream;
       }
 
-      const socket = io("http://localhost:5000");
+      const socket = io("https://medlink-bh5c.onrender.com");
       socketRef.current = socket;
 
       socket.emit("join-consultation", consultationId);
@@ -157,7 +157,7 @@ const DoctorConsultation = () => {
   const handleCompleteConsultation = async () => {
     try {
       const response = await axios.put(
-        `http://localhost:5000/api/consultation/status/${consultationId}`,
+        `https://medlink-bh5c.onrender.com/api/consultation/status/${consultationId}`,
         { status: "completed", notes },
         { withCredentials: true }
       );

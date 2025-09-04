@@ -39,7 +39,7 @@ const PatientConsultation = () => {
   const fetchConsultation = async () => {
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/consultation/${consultationId}`,
+        `https://medlink-bh5c.onrender.com/api/consultation/${consultationId}`,
         { withCredentials: true }
       );
 
@@ -73,7 +73,7 @@ const PatientConsultation = () => {
       }
 
       // Initialize Socket.IO connection
-      const socket = io("http://localhost:5000");
+      const socket = io("https://medlink-bh5c.onrender.com");
       socketRef.current = socket;
 
       socket.emit("join-consultation", consultationId);

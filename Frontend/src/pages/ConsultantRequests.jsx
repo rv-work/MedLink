@@ -13,7 +13,7 @@ const ConsultantRequests = () => {
   const fetchPendingRequests = async () => {
     try {
       const response = await axios.get(
-        "http://localhost:5000/api/consultation/pending",
+        "https://medlink-bh5c.onrender.com/api/consultation/pending",
         { withCredentials: true }
       );
 
@@ -30,7 +30,7 @@ const ConsultantRequests = () => {
   const handleAcceptRequest = async (requestId) => {
     try {
       const response = await axios.put(
-        `http://localhost:5000/api/consultation/accept/${requestId}`,
+        `https://medlink-bh5c.onrender.com/api/consultation/accept/${requestId}`,
         {},
         { withCredentials: true }
       );

@@ -30,9 +30,9 @@ app.use(cookieParser());
 app.use(cors({
   origin: [
     'http://localhost:5173', 
-    'http://localhost:3000',
     'http://0.0.0.0:5001',
     'https://dr-av-instructors-threat.trycloudflare.com',
+    'https://med-link-rvn.vercel.app'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true,
@@ -55,5 +55,5 @@ connectDB();
 startDailySummaryJob();
 
 server.listen(5000, "0.0.0.0", () => {
-  console.log(`Server running on http://localhost:5000`);
+  console.log(`Server running on https://medlink-bh5c.onrender.com`);
 });

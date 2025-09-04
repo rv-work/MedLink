@@ -159,17 +159,20 @@ const MedicalChatPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/chat/ask", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          question: userMessage,
-          sessionId: sessionId,
-        }),
-      });
+      const response = await fetch(
+        "https://medlink-bh5c.onrender.com/api/chat/ask",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            question: userMessage,
+            sessionId: sessionId,
+          }),
+        }
+      );
 
       const data = await response.json();
 
@@ -214,7 +217,7 @@ const MedicalChatPage = () => {
     try {
       if (allow) {
         const response = await fetch(
-          "http://localhost:5000/api/chat/internet-answer",
+          "https://medlink-bh5c.onrender.com/api/chat/internet-answer",
           {
             method: "POST",
             headers: {

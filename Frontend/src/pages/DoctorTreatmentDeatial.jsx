@@ -22,7 +22,7 @@ const DoctorTreatmentDetail = () => {
     try {
       setLoading(true);
       const response = await axios.get(
-        `http://localhost:5000/api/doctor/get-treatment-detail/${treatmentId}`,
+        `https://medlink-bh5c.onrender.com/api/doctor/get-treatment-detail/${treatmentId}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -46,7 +46,7 @@ const DoctorTreatmentDetail = () => {
       setSubmitting((prev) => ({ ...prev, [summaryId]: true }));
 
       await axios.post(
-        `http://localhost:5000/api/doctor/summary/${summaryId}/`,
+        `https://medlink-bh5c.onrender.com/api/doctor/summary/${summaryId}/`,
         { message: messageInput[summaryId] },
         {
           headers: {

@@ -203,7 +203,7 @@ const useReportForm = () => {
       const extractedText = textResult.data.text;
 
       const res = await fetch(
-        "http://localhost:5000/api/user/report-medicines",
+        "https://medlink-bh5c.onrender.com/api/user/report-medicines",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -290,7 +290,7 @@ const useReportForm = () => {
       );
 
       const res = await fetch(
-        "http://localhost:5000/api/user/upload-report-web2",
+        "https://medlink-bh5c.onrender.com/api/user/upload-report-web2",
         {
           method: "POST",
           body: uploadData,
@@ -342,7 +342,7 @@ const useReportForm = () => {
       };
 
       const res = await axios.post(
-        "http://localhost:5000/api/user/upload-report-web3",
+        "https://medlink-bh5c.onrender.com/api/user/upload-report-web3",
         reportPayload,
         { withCredentials: true }
       );
@@ -383,7 +383,7 @@ const useReportForm = () => {
 
       // Update the report with blockchain transaction hash
       await axios.put(
-        `http://localhost:5000/api/user/reports/${reportId}/blockchain`,
+        `https://medlink-bh5c.onrender.com/api/user/reports/${reportId}/blockchain`,
         { txHash: receipt.hash },
         { withCredentials: true }
       );

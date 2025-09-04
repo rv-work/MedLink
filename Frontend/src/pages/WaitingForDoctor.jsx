@@ -21,7 +21,7 @@ const WaitingForDoctor = () => {
   const fetchRequestStatus = async () => {
     try {
       const response = await axios.get(
-        "http://localhost:5000/api/consultation/my-pending",
+        "https://medlink-bh5c.onrender.com/api/consultation/my-pending",
         { withCredentials: true }
       );
 
@@ -50,7 +50,7 @@ const WaitingForDoctor = () => {
   const cancelRequest = async () => {
     try {
       await axios.put(
-        `http://localhost:5000/api/consultation/cancel/${requestStatus._id}`,
+        `https://medlink-bh5c.onrender.com/api/consultation/cancel/${requestStatus._id}`,
         {},
         { withCredentials: true }
       );
