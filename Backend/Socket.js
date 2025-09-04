@@ -18,52 +18,116 @@ export const initializeSocket = (server) => {
       socket.join(consultationId);
       
       if (!consultationRooms.has(consultationId)) {
-        consultationRooms.set(consultationId, new Set());
+        consultationRooms.set(consultationId, { doctor: null, patient: null });
       }
-      consultationRooms.get(consultationId).add(socket.id);
       
       console.log(`User ${socket.id} joined consultation ${consultationId}`);
     });
 
+    // Doctor joins and notifies patient
     socket.on('doctor-joined', (consultationId) => {
+      const room = consultationRooms.get(consultationId);
+      if (room) {
+        room.doctor = socket.id;
+      }
+      
+      console.log(`Doctor ${socket.id} joined consultation ${consultationId}`);
       socket.to(consultationId).emit('doctor-joined');
     });
 
-    // FIXED: Emit objects with wrapped data matching client expectations
+    // Patient is ready for connection
+    socket.on('patient-ready', (consultationId) => {
+      const room = consultationRooms.get(consultationId);
+      if (room) {
+        room.patient = socket.id;
+      }
+      
+      console.log(`Patient ${socket.id} ready for consultation ${consultationId}`);
+      // Notify doctor that patient is ready
+      socket.to(consultationId).emit('patient-ready');
+    });
+
+    // WebRTC signaling - Offer from doctor to patient
     socket.on('offer', ({ offer, consultationId }) => {
-      socket.to(consultationId).emit('offer', { offer, consultationId });
+      console.log(`Relaying offer for consultation ${consultationId}`);
+      socket.to(consultationId).emit('offer', { 
+        offer, 
+        consultationId,
+        from: socket.id 
+      });
     });
 
+    // WebRTC signaling - Answer from patient to doctor
     socket.on('answer', ({ answer, consultationId }) => {
-      socket.to(consultationId).emit('answer', { answer, consultationId });
+      console.log(`Relaying answer for consultation ${consultationId}`);
+      socket.to(consultationId).emit('answer', { 
+        answer, 
+        consultationId,
+        from: socket.id 
+      });
     });
 
-    socket.on('ice-candidate', ({ candidate, consultationId }) => {
-      socket.to(consultationId).emit('ice-candidate', { candidate, consultationId });
+    // ICE candidates exchange
+    socket.on('ice-candidate', ({ candidate, consultationId, from }) => {
+      console.log(`Relaying ICE candidate for consultation ${consultationId} from ${from}`);
+      socket.to(consultationId).emit('ice-candidate', { 
+        candidate, 
+        consultationId,
+        from 
+      });
     });
 
+    // Call termination
     socket.on('end-call', (consultationId) => {
+      console.log(`Call ended for consultation ${consultationId}`);
       socket.to(consultationId).emit('call-ended');
     });
 
+    // Consultation completion
     socket.on('consultation-completed', (consultationId) => {
+      console.log(`Consultation completed: ${consultationId}`);
       socket.to(consultationId).emit('consultation-completed');
     });
 
+    // Handle disconnection
     socket.on('disconnect', () => {
       console.log('User disconnected:', socket.id);
       
       // Clean up consultation rooms
-      for (const [consultationId, participants] of consultationRooms.entries()) {
-        if (participants.has(socket.id)) {
-          participants.delete(socket.id);
-          if (participants.size === 0) {
+      for (const [consultationId, room] of consultationRooms.entries()) {
+        if (room.doctor === socket.id || room.patient === socket.id) {
+          // Notify other participant about disconnection
+          socket.to(consultationId).emit('participant-disconnected');
+          
+          // Reset room or delete if both participants left
+          if (room.doctor === socket.id) {
+            room.doctor = null;
+          }
+          if (room.patient === socket.id) {
+            room.patient = null;
+          }
+          
+          // Remove room if empty
+          if (!room.doctor && !room.patient) {
             consultationRooms.delete(consultationId);
+            console.log(`Cleaned up consultation room: ${consultationId}`);
           }
         }
       }
     });
+
+    // Handle connection errors
+    socket.on('error', (error) => {
+      console.error('Socket error:', error);
+    });
   });
+
+  // Log active rooms periodically (for debugging)
+  setInterval(() => {
+    if (consultationRooms.size > 0) {
+      console.log('Active consultation rooms:', consultationRooms.size);
+    }
+  }, 30000); // Every 30 seconds
 
   return io;
 };
