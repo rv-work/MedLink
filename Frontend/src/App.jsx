@@ -26,6 +26,7 @@ import ConsultantRequests from "./pages/ConsultantRequests";
 import WaitingForDoctor from "./pages/WaitingForDoctor";
 import PatientConsultation from "./pages/PatientConsultation";
 import DoctorConsultation from "./pages/DoctorConsultation";
+import VideoCall from "./pages/VideoCall";
 
 function App() {
   return (
