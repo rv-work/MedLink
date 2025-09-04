@@ -32,7 +32,7 @@ app.use(cors({
     'http://localhost:5173', 
     'http://0.0.0.0:5001',
     'https://dr-av-instructors-threat.trycloudflare.com',
-    'https://med-link-rvn.vercel.app'
+    'https://med-link-rvn.vercel.app/'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true,
