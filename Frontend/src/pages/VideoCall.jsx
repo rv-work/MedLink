@@ -34,15 +34,22 @@ const VideoCall = () => {
     return () => {
       cleanup();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consultationId]);
 
   const cleanup = () => {
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
     }
     if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
+      try {
+        peerConnectionRef.current.close();
+      } catch (e) {}
+      peerConnectionRef.current = null;
     }
+    dataChannelRef.current = null;
+    offerCreatedRef.current = false;
   };
 
   const fetchConsultation = async () => {
@@ -74,6 +81,29 @@ const VideoCall = () => {
       setLoading(false);
     }
   };
+
+  const waitForIceGatheringComplete = (pc, timeout = 5000) =>
+    new Promise((resolve) => {
+      if (!pc) return resolve();
+      if (pc.iceGatheringState === "complete") return resolve();
+
+      const handleStateChange = () => {
+        if (pc.iceGatheringState === "complete") {
+          pc.removeEventListener("icegatheringstatechange", handleStateChange);
+          resolve();
+        }
+      };
+
+      pc.addEventListener("icegatheringstatechange", handleStateChange);
+
+      // fallback timeout
+      setTimeout(() => {
+        try {
+          pc.removeEventListener("icegatheringstatechange", handleStateChange);
+        } catch (e) {}
+        resolve();
+      }, timeout);
+    });
 
   const initializeWebRTC = async () => {
     try {
@@ -108,26 +138,29 @@ const VideoCall = () => {
         peerConnection.addTrack(track, stream);
       });
 
-      // Create data channel for signaling
-      const dataChannel = peerConnection.createDataChannel("signaling", {
-        ordered: true,
-      });
-      dataChannelRef.current = dataChannel;
-
-      dataChannel.onopen = () => {
-        console.log("Data channel opened");
-        setCallStatus("connected");
-      };
-
-      dataChannel.onmessage = (event) => {
-        handleDataChannelMessage(JSON.parse(event.data));
-      };
-
-      // Handle incoming data channel
+      // Offerer will create data channel when they create offer
+      // Answerer will receive it via ondatachannel — save that channel ref
       peerConnection.ondatachannel = (event) => {
         const channel = event.channel;
-        channel.onmessage = (event) => {
-          handleDataChannelMessage(JSON.parse(event.data));
+        dataChannelRef.current = channel;
+
+        channel.onopen = () => {
+          console.log("Data channel (answerer) opened");
+          // notify presence if needed
+          try {
+            channel.send(JSON.stringify({ type: "user-joined" }));
+          } catch (e) {}
+          setCallStatus("connected");
+        };
+
+        channel.onmessage = (ev) => {
+          try {
+            handleDataChannelMessage(JSON.parse(ev.data));
+          } catch (e) {}
+        };
+
+        channel.onclose = () => {
+          console.log("Data channel closed (answerer)");
         };
       };
 
@@ -144,9 +177,12 @@ const VideoCall = () => {
       // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          // In a serverless setup, you'd exchange ICE candidates through the data channel
-          // or through a simple signaling mechanism
-          console.log("ICE candidate:", event.candidate);
+          // we are using "bundle" clipboard exchange with full SDP after gathering;
+          // so individual candidates don't need to be sent here. Keep for debugging.
+          console.log("Local ICE candidate:", event.candidate);
+        } else {
+          // null candidate indicates end of gathering in some browsers
+          console.log("ICE gathering complete (null candidate).");
         }
       };
 
@@ -193,12 +229,18 @@ const VideoCall = () => {
       case "call-ended":
         setCallStatus("ended");
         break;
+      default:
+        console.log("Unknown data message:", data);
     }
   };
 
   const sendDataChannelMessage = (data) => {
-    if (dataChannelRef.current?.readyState === "open") {
-      dataChannelRef.current.send(JSON.stringify(data));
+    try {
+      if (dataChannelRef.current?.readyState === "open") {
+        dataChannelRef.current.send(JSON.stringify(data));
+      }
+    } catch (e) {
+      console.warn("Failed to send data-channel message", e);
     }
   };
 
@@ -207,52 +249,91 @@ const VideoCall = () => {
     offerCreatedRef.current = true;
 
     try {
+      // create data channel (offerer)
+      const dataChannel = peerConnectionRef.current.createDataChannel(
+        "signaling",
+        {
+          ordered: true,
+        }
+      );
+      dataChannelRef.current = dataChannel;
+
+      dataChannel.onopen = () => {
+        console.log("Data channel opened (offerer)");
+        sendDataChannelMessage({ type: "user-joined" });
+        setCallStatus("connected");
+      };
+
+      dataChannel.onmessage = (event) => {
+        try {
+          handleDataChannelMessage(JSON.parse(event.data));
+        } catch (e) {}
+      };
+
+      // Create offer
       const offer = await peerConnectionRef.current.createOffer();
       await peerConnectionRef.current.setLocalDescription(offer);
 
-      // In a real serverless setup, you'd share this offer through:
-      // 1. QR code
-      // 2. Copy-paste mechanism
-      // 3. Simple HTTP endpoint
-      // 4. WebSocket for just signaling
+      // Wait for ICE gathering to complete so SDP contains candidates
+      await waitForIceGatheringComplete(peerConnectionRef.current, 7000);
 
-      console.log("Offer created:", offer);
+      const localDesc = peerConnectionRef.current.localDescription;
+      console.log("Offer (with candidates):", localDesc);
+
       setCallStatus("waiting-for-answer");
 
-      // For demo purposes, copy to clipboard
-      navigator.clipboard.writeText(JSON.stringify(offer));
-      setMessage(
-        "Offer copied to clipboard. Share with the other participant."
-      );
+      // Copy final SDP to clipboard (stringified)
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(localDesc));
+        setMessage(
+          "Offer copied to clipboard. Share with the other participant."
+        );
+      } catch (e) {
+        setMessage("Unable to copy to clipboard — paste this JSON manually.");
+      }
     } catch (error) {
       console.error("Error creating offer:", error);
+      offerCreatedRef.current = false;
     }
   };
 
   const createAnswer = async (offer) => {
     try {
+      // allow passing in string or object
+      const offerDesc = typeof offer === "string" ? JSON.parse(offer) : offer;
+
       await peerConnectionRef.current.setRemoteDescription(
-        new RTCSessionDescription(offer)
+        new RTCSessionDescription(offerDesc)
       );
+
       const answer = await peerConnectionRef.current.createAnswer();
       await peerConnectionRef.current.setLocalDescription(answer);
 
-      console.log("Answer created:", answer);
+      // Wait for ICE gathering to complete so SDP contains candidates
+      await waitForIceGatheringComplete(peerConnectionRef.current, 7000);
+
+      const localDesc = peerConnectionRef.current.localDescription;
+      console.log("Answer (with candidates):", localDesc);
 
       // Copy answer to clipboard
-      navigator.clipboard.writeText(JSON.stringify(answer));
-      setMessage(
-        "Answer copied to clipboard. Share with the other participant."
-      );
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(localDesc));
+        setMessage("Answer copied to clipboard. Share with the offerer.");
+      } catch (e) {
+        setMessage("Unable to copy to clipboard — paste this JSON manually.");
+      }
     } catch (error) {
       console.error("Error creating answer:", error);
+      setMessage("Failed to create answer. Make sure incoming SDP is valid.");
     }
   };
 
   const handleAnswer = async (answer) => {
     try {
+      const answerDesc =
+        typeof answer === "string" ? JSON.parse(answer) : answer;
       await peerConnectionRef.current.setRemoteDescription(
-        new RTCSessionDescription(answer)
+        new RTCSessionDescription(answerDesc)
       );
       setCallStatus("connected");
     } catch (error) {
@@ -277,7 +358,9 @@ const VideoCall = () => {
   };
 
   const handleEndCall = () => {
-    sendDataChannelMessage({ type: "call-ended" });
+    try {
+      sendDataChannelMessage({ type: "call-ended" });
+    } catch (e) {}
     cleanup();
     setCallStatus("ended");
 
