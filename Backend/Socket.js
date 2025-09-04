@@ -1,10 +1,10 @@
-import socketIo from 'socket.io';
+import {Server} from 'socket.io';
 
 // Store consultation states to prevent race conditions
 const consultationStates = new Map();
 
 export const initializeSocket = (server) => {
-  const io = socketIo(server, {
+  const io = Server(server, {
     cors: {
       origin: ["http://localhost:3000", "https://medlink-frontend.vercel.app"],
       methods: ["GET", "POST"],
