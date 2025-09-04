@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
+import io from "socket.io-client";
 
 const VideoCall = () => {
   const { consultationId } = useParams();
@@ -9,7 +10,7 @@ const VideoCall = () => {
   const [callStatus, setCallStatus] = useState("initializing");
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
-  const [userRole, setUserRole] = useState(null); // 'doctor' or 'patient'
+  const [userRole, setUserRole] = useState(null);
   const [notes, setNotes] = useState("");
   const [message, setMessage] = useState("");
   const [remoteUserConnected, setRemoteUserConnected] = useState(false);
@@ -18,24 +19,99 @@ const VideoCall = () => {
   const remoteVideoRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
-  const dataChannelRef = useRef(null);
-  const offerCreatedRef = useRef(false);
+  const socketRef = useRef(null);
+  const currentUserIdRef = useRef(null);
 
-  // Simple ICE servers - no TURN needed for basic P2P
   const iceServers = [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
   ];
 
   useEffect(() => {
+    initializeSocket();
     fetchConsultation();
-    initializeWebRTC();
 
     return () => {
       cleanup();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consultationId]);
+
+  const initializeSocket = () => {
+    // Connect to your Socket.IO server
+    socketRef.current = io("https://medlink-bh5c.onrender.com", {
+      withCredentials: true,
+    });
+
+    const socket = socketRef.current;
+
+    socket.on("connect", () => {
+      console.log("Connected to Socket.IO server");
+      socket.emit("join-consultation", consultationId);
+    });
+
+    // Listen for doctor joining
+    socket.on("doctor-joined", () => {
+      console.log("Doctor joined the consultation");
+      setRemoteUserConnected(true);
+    });
+
+    // Listen for create offer request (doctor only)
+    socket.on("create-offer", async () => {
+      if (userRole === "doctor") {
+        await createOffer();
+      }
+    });
+
+    // Listen for offer (patient only)
+    socket.on("offer", async ({ offer }) => {
+      if (userRole === "patient") {
+        await handleOffer(offer);
+      }
+    });
+
+    // Listen for answer (doctor only)
+    socket.on("answer", async ({ answer }) => {
+      if (userRole === "doctor") {
+        await handleAnswer(answer);
+      }
+    });
+
+    // Listen for ICE candidates
+    socket.on("ice-candidate", async ({ candidate, from }) => {
+      if (from !== currentUserIdRef.current && peerConnectionRef.current) {
+        try {
+          await peerConnectionRef.current.addIceCandidate(
+            new RTCIceCandidate(candidate)
+          );
+        } catch (error) {
+          console.error("Error adding ICE candidate:", error);
+        }
+      }
+    });
+
+    // Listen for call ended
+    socket.on("call-ended", () => {
+      setCallStatus("ended");
+      setMessage("Call ended by other participant");
+      cleanup();
+    });
+
+    // Listen for participant disconnected
+    socket.on("participant-disconnected", () => {
+      setRemoteUserConnected(false);
+      setMessage("Other participant disconnected");
+    });
+
+    // Listen for consultation completed
+    socket.on("consultation-completed", () => {
+      setMessage("Consultation completed successfully!");
+      setTimeout(() => {
+        if (userRole === "patient") {
+          window.location.href = "/dashboard";
+        }
+      }, 2000);
+    });
+  };
 
   const cleanup = () => {
     if (localStreamRef.current) {
@@ -48,8 +124,10 @@ const VideoCall = () => {
       } catch (e) {}
       peerConnectionRef.current = null;
     }
-    dataChannelRef.current = null;
-    offerCreatedRef.current = false;
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
   };
 
   const fetchConsultation = async () => {
@@ -60,50 +138,41 @@ const VideoCall = () => {
       );
 
       if (response.data.success) {
-        setConsultation(response.data.data);
-        setNotes(response.data.data.notes || "");
+        const consultationData = response.data.data;
+        setConsultation(consultationData);
+        setNotes(consultationData.notes || "");
 
-        // Determine user role
-        const currentUser =
-          response.data.data.doctor || response.data.data.patient;
-        if (
-          response.data.data.doctor &&
-          currentUser._id === response.data.data.doctor._id
-        ) {
-          setUserRole("doctor");
-        } else {
-          setUserRole("patient");
+        // Determine user role and current user ID
+        const token = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("token="))
+          ?.split("=")[1];
+
+        if (token) {
+          // Decode JWT to get user ID (simplified - you might want to use a proper JWT library)
+          const payload = JSON.parse(atob(token.split(".")[1]));
+          currentUserIdRef.current = payload._id;
+
+          if (
+            consultationData.doctor &&
+            payload._id === consultationData.doctor._id
+          ) {
+            setUserRole("doctor");
+          } else {
+            setUserRole("patient");
+          }
         }
+
+        // Initialize WebRTC after we know the user role
+        await initializeWebRTC();
       }
     } catch (error) {
+      console.error("Error fetching consultation:", error);
       setMessage("Error fetching consultation details");
     } finally {
       setLoading(false);
     }
   };
-
-  const waitForIceGatheringComplete = (pc, timeout = 5000) =>
-    new Promise((resolve) => {
-      if (!pc) return resolve();
-      if (pc.iceGatheringState === "complete") return resolve();
-
-      const handleStateChange = () => {
-        if (pc.iceGatheringState === "complete") {
-          pc.removeEventListener("icegatheringstatechange", handleStateChange);
-          resolve();
-        }
-      };
-
-      pc.addEventListener("icegatheringstatechange", handleStateChange);
-
-      // fallback timeout
-      setTimeout(() => {
-        try {
-          pc.removeEventListener("icegatheringstatechange", handleStateChange);
-        } catch (e) {}
-        resolve();
-      }, timeout);
-    });
 
   const initializeWebRTC = async () => {
     try {
@@ -138,32 +207,6 @@ const VideoCall = () => {
         peerConnection.addTrack(track, stream);
       });
 
-      // Offerer will create data channel when they create offer
-      // Answerer will receive it via ondatachannel — save that channel ref
-      peerConnection.ondatachannel = (event) => {
-        const channel = event.channel;
-        dataChannelRef.current = channel;
-
-        channel.onopen = () => {
-          console.log("Data channel (answerer) opened");
-          // notify presence if needed
-          try {
-            channel.send(JSON.stringify({ type: "user-joined" }));
-          } catch (e) {}
-          setCallStatus("connected");
-        };
-
-        channel.onmessage = (ev) => {
-          try {
-            handleDataChannelMessage(JSON.parse(ev.data));
-          } catch (e) {}
-        };
-
-        channel.onclose = () => {
-          console.log("Data channel closed (answerer)");
-        };
-      };
-
       // Handle remote stream
       peerConnection.ontrack = (event) => {
         console.log("Received remote stream");
@@ -171,18 +214,20 @@ const VideoCall = () => {
           remoteVideoRef.current.srcObject = event.streams[0];
           setRemoteUserConnected(true);
           setCallStatus("connected");
+
+          // Notify server about successful connection
+          socketRef.current?.emit("connection-established", consultationId);
         }
       };
 
       // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-          // we are using "bundle" clipboard exchange with full SDP after gathering;
-          // so individual candidates don't need to be sent here. Keep for debugging.
-          console.log("Local ICE candidate:", event.candidate);
-        } else {
-          // null candidate indicates end of gathering in some browsers
-          console.log("ICE gathering complete (null candidate).");
+        if (event.candidate && socketRef.current) {
+          socketRef.current.emit("ice-candidate", {
+            candidate: event.candidate.toJSON(),
+            consultationId,
+            from: currentUserIdRef.current,
+          });
         }
       };
 
@@ -211,6 +256,11 @@ const VideoCall = () => {
       };
 
       setCallStatus("ready");
+
+      // Notify server about role
+      if (userRole === "doctor") {
+        socketRef.current?.emit("doctor-joined", consultationId);
+      }
     } catch (error) {
       console.error("Error initializing WebRTC:", error);
       setMessage("Error accessing camera/microphone");
@@ -218,126 +268,74 @@ const VideoCall = () => {
     }
   };
 
-  const handleDataChannelMessage = (data) => {
-    switch (data.type) {
-      case "user-joined":
-        setRemoteUserConnected(true);
-        break;
-      case "user-left":
-        setRemoteUserConnected(false);
-        break;
-      case "call-ended":
-        setCallStatus("ended");
-        break;
-      default:
-        console.log("Unknown data message:", data);
-    }
-  };
-
-  const sendDataChannelMessage = (data) => {
-    try {
-      if (dataChannelRef.current?.readyState === "open") {
-        dataChannelRef.current.send(JSON.stringify(data));
-      }
-    } catch (e) {
-      console.warn("Failed to send data-channel message", e);
-    }
-  };
-
   const createOffer = async () => {
-    if (offerCreatedRef.current) return;
-    offerCreatedRef.current = true;
-
     try {
-      // create data channel (offerer)
-      const dataChannel = peerConnectionRef.current.createDataChannel(
-        "signaling",
-        {
-          ordered: true,
-        }
-      );
-      dataChannelRef.current = dataChannel;
+      if (!peerConnectionRef.current) return;
 
-      dataChannel.onopen = () => {
-        console.log("Data channel opened (offerer)");
-        sendDataChannelMessage({ type: "user-joined" });
-        setCallStatus("connected");
-      };
-
-      dataChannel.onmessage = (event) => {
-        try {
-          handleDataChannelMessage(JSON.parse(event.data));
-        } catch (e) {}
-      };
-
-      // Create offer
       const offer = await peerConnectionRef.current.createOffer();
       await peerConnectionRef.current.setLocalDescription(offer);
 
-      // Wait for ICE gathering to complete so SDP contains candidates
-      await waitForIceGatheringComplete(peerConnectionRef.current, 7000);
-
-      const localDesc = peerConnectionRef.current.localDescription;
-      console.log("Offer (with candidates):", localDesc);
+      // Send offer via Socket.IO
+      socketRef.current?.emit("offer", {
+        offer: offer,
+        consultationId,
+      });
 
       setCallStatus("waiting-for-answer");
-
-      // Copy final SDP to clipboard (stringified)
-      try {
-        await navigator.clipboard.writeText(JSON.stringify(localDesc));
-        setMessage(
-          "Offer copied to clipboard. Share with the other participant."
-        );
-      } catch (e) {
-        setMessage("Unable to copy to clipboard — paste this JSON manually.");
-      }
+      setMessage("Offer sent, waiting for patient to join...");
     } catch (error) {
       console.error("Error creating offer:", error);
-      offerCreatedRef.current = false;
+      setMessage("Error creating offer");
     }
   };
 
-  const createAnswer = async (offer) => {
+  const handleOffer = async (offer) => {
     try {
-      // allow passing in string or object
-      const offerDesc = typeof offer === "string" ? JSON.parse(offer) : offer;
+      if (!peerConnectionRef.current) return;
 
       await peerConnectionRef.current.setRemoteDescription(
-        new RTCSessionDescription(offerDesc)
+        new RTCSessionDescription(offer)
       );
-
       const answer = await peerConnectionRef.current.createAnswer();
       await peerConnectionRef.current.setLocalDescription(answer);
 
-      // Wait for ICE gathering to complete so SDP contains candidates
-      await waitForIceGatheringComplete(peerConnectionRef.current, 7000);
+      // Send answer via Socket.IO
+      socketRef.current?.emit("answer", {
+        answer: answer,
+        consultationId,
+      });
 
-      const localDesc = peerConnectionRef.current.localDescription;
-      console.log("Answer (with candidates):", localDesc);
-
-      // Copy answer to clipboard
-      try {
-        await navigator.clipboard.writeText(JSON.stringify(localDesc));
-        setMessage("Answer copied to clipboard. Share with the offerer.");
-      } catch (e) {
-        setMessage("Unable to copy to clipboard — paste this JSON manually.");
-      }
+      setMessage("Connected! You can start the conversation.");
     } catch (error) {
-      console.error("Error creating answer:", error);
-      setMessage("Failed to create answer. Make sure incoming SDP is valid.");
+      console.error("Error handling offer:", error);
+      setMessage("Error connecting to doctor");
     }
   };
 
   const handleAnswer = async (answer) => {
     try {
-      const answerDesc =
-        typeof answer === "string" ? JSON.parse(answer) : answer;
+      if (!peerConnectionRef.current) return;
+
       await peerConnectionRef.current.setRemoteDescription(
-        new RTCSessionDescription(answerDesc)
+        new RTCSessionDescription(answer)
       );
       setCallStatus("connected");
+      setMessage("Patient connected! You can start the consultation.");
     } catch (error) {
       console.error("Error handling answer:", error);
+      setMessage("Error processing patient connection");
+    }
+  };
+
+  const startCall = () => {
+    if (userRole === "patient") {
+      // Patient signals readiness
+      socketRef.current?.emit("patient-ready", consultationId);
+      setMessage("Connecting to doctor...");
+      setCallStatus("connecting");
+    } else if (userRole === "doctor") {
+      // Doctor can manually trigger offer creation
+      createOffer();
     }
   };
 
@@ -358,9 +356,7 @@ const VideoCall = () => {
   };
 
   const handleEndCall = () => {
-    try {
-      sendDataChannelMessage({ type: "call-ended" });
-    } catch (e) {}
+    socketRef.current?.emit("end-call", consultationId);
     cleanup();
     setCallStatus("ended");
 
@@ -382,12 +378,14 @@ const VideoCall = () => {
       );
 
       if (response.data.success) {
+        socketRef.current?.emit("consultation-completed", consultationId);
         setMessage("Consultation completed successfully!");
         setTimeout(() => {
           window.location.href = "/doctor/consultants";
         }, 2000);
       }
     } catch (error) {
+      console.error("Error completing consultation:", error);
       setMessage("Error completing consultation");
     }
   };
@@ -457,7 +455,7 @@ const VideoCall = () => {
                 </div>
 
                 {/* Connection Status Overlay */}
-                {!remoteUserConnected && (
+                {!remoteUserConnected && callStatus !== "connected" && (
                   <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
                     <div className="text-center text-white">
                       <div className="animate-pulse">
@@ -478,13 +476,13 @@ const VideoCall = () => {
                         </div>
                       </div>
                       <h3 className="text-lg font-medium mb-2">
-                        Waiting for connection...
-                      </h3>
-                      <p className="text-gray-300">
                         {callStatus === "ready"
                           ? "Ready to connect"
-                          : `Status: ${callStatus}`}
-                      </p>
+                          : callStatus === "connecting"
+                          ? "Connecting..."
+                          : "Waiting for connection..."}
+                      </h3>
+                      <p className="text-gray-300">Status: {callStatus}</p>
                     </div>
                   </div>
                 )}
@@ -556,12 +554,15 @@ const VideoCall = () => {
                   </svg>
                 </button>
 
-                {callStatus === "ready" && (
+                {(callStatus === "ready" || callStatus === "initializing") && (
                   <button
-                    onClick={createOffer}
+                    onClick={startCall}
                     className="px-6 py-3 bg-green-600 hover:bg-green-500 text-white rounded-full transition-colors"
+                    disabled={callStatus === "connecting"}
                   >
-                    Start Call
+                    {callStatus === "connecting"
+                      ? "Connecting..."
+                      : "Start Call"}
                   </button>
                 )}
 
@@ -631,39 +632,6 @@ const VideoCall = () => {
                           {consultation.problemDescription}
                         </p>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Simple Connection Instructions */}
-                  <div className="border-t pt-4">
-                    <h4 className="font-medium text-gray-900 mb-2">
-                      Connection Instructions
-                    </h4>
-                    <div className="text-sm text-gray-600 space-y-2">
-                      <p>1. Click "Start Call" to create connection</p>
-                      <p>2. Copy the offer/answer from clipboard</p>
-                      <p>3. Share with the other participant</p>
-                      <p>4. Paste their offer/answer below</p>
-                    </div>
-
-                    {/* Simple paste area for offers/answers */}
-                    <div className="mt-4">
-                      <textarea
-                        className="w-full h-24 p-2 border rounded-md text-xs"
-                        placeholder="Paste offer or answer here..."
-                        onChange={(e) => {
-                          try {
-                            const data = JSON.parse(e.target.value);
-                            if (data.type === "offer") {
-                              createAnswer(data);
-                            } else if (data.type === "answer") {
-                              handleAnswer(data);
-                            }
-                          } catch (err) {
-                            // Invalid JSON, ignore
-                          }
-                        }}
-                      />
                     </div>
                   </div>
 
