@@ -134,6 +134,29 @@ export default function VideoCall() {
     }
   }, [selectedLanguage, isListening]);
 
+  // useEffect add करें remote streams के changes को monitor करने के लिए:
+  useEffect(() => {
+    console.log("🔍 Remote streams updated:", Object.keys(remoteStreams));
+
+    Object.entries(remoteStreams).forEach(([userId, stream]) => {
+      console.log(`User ${userId}:`, {
+        streamId: stream.id,
+        active: stream.active,
+        videoTracks: stream.getVideoTracks().length,
+        audioTracks: stream.getAudioTracks().length,
+      });
+
+      // Check track states
+      stream.getTracks().forEach((track, index) => {
+        console.log(`  Track ${index} (${track.kind}):`, {
+          enabled: track.enabled,
+          readyState: track.readyState,
+          muted: track.muted,
+        });
+      });
+    });
+  }, [remoteStreams]);
+
   const formatDuration = (seconds) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -1169,12 +1192,13 @@ export default function VideoCall() {
                 )}
               </div>
             </div>
-
             {/* Remote Videos */}
+            // Remote Videos section को इससे replace करें:
             {Object.entries(remoteStreams).map(([userId, stream]) => {
               const userLang =
                 participants.find((p) => p.userName === userId)?.language ||
                 "en";
+
               return (
                 <div
                   key={userId}
@@ -1183,20 +1207,132 @@ export default function VideoCall() {
                   <video
                     autoPlay
                     playsInline
+                    muted={false} // Remote video को mute नहीं करना चाहिए
                     className="w-full h-full object-cover"
                     ref={(video) => {
-                      if (video && stream && video.srcObject !== stream) {
-                        video.srcObject = stream;
-                        safeVideoPlay(video, userId);
+                      if (video && stream) {
+                        console.log(`Setting stream for ${userId}:`, {
+                          streamId: stream.id,
+                          streamActive: stream.active,
+                          tracks: stream.getTracks().length,
+                        });
+
+                        // Force clear and reset
+                        video.srcObject = null;
+
+                        // Use requestAnimationFrame for better timing
+                        requestAnimationFrame(() => {
+                          video.srcObject = stream;
+
+                          // Force load and play
+                          video.load();
+
+                          const attemptPlay = async () => {
+                            try {
+                              if (video.readyState >= 2) {
+                                // HAVE_CURRENT_DATA
+                                await video.play();
+                                console.log(
+                                  `✅ Remote video playing for ${userId}`
+                                );
+                              } else {
+                                // Wait for loadeddata event
+                                video.addEventListener(
+                                  "loadeddata",
+                                  async () => {
+                                    try {
+                                      await video.play();
+                                      console.log(
+                                        `✅ Remote video playing for ${userId} after loadeddata`
+                                      );
+                                    } catch (error) {
+                                      console.error(
+                                        `❌ Play failed for ${userId}:`,
+                                        error
+                                      );
+                                    }
+                                  },
+                                  { once: true }
+                                );
+                              }
+                            } catch (error) {
+                              console.error(
+                                `❌ Initial play failed for ${userId}:`,
+                                error
+                              );
+                              // Retry after delay
+                              setTimeout(attemptPlay, 1000);
+                            }
+                          };
+
+                          attemptPlay();
+                        });
                       }
                     }}
+                    onLoadStart={(e) => {
+                      console.log(`🔄 Remote video load started for ${userId}`);
+                    }}
                     onLoadedMetadata={(e) => {
-                      safeVideoPlay(e.target, userId);
+                      console.log(
+                        `📊 Remote video metadata loaded for ${userId}:`,
+                        {
+                          videoWidth: e.target.videoWidth,
+                          videoHeight: e.target.videoHeight,
+                          duration: e.target.duration,
+                        }
+                      );
+                    }}
+                    onLoadedData={(e) => {
+                      console.log(`📡 Remote video data loaded for ${userId}`);
+                    }}
+                    onCanPlay={(e) => {
+                      console.log(`▶️ Remote video can play for ${userId}`);
+                      if (e.target.paused) {
+                        e.target.play().catch(console.error);
+                      }
+                    }}
+                    onPlay={(e) => {
+                      console.log(
+                        `🎥 Remote video started playing for ${userId}`
+                      );
                     }}
                     onError={(e) => {
-                      console.error(`Remote video error for ${userId}:`, e);
+                      console.error(
+                        `❌ Remote video error for ${userId}:`,
+                        e.target.error
+                      );
+
+                      // Try to recover from error
+                      setTimeout(() => {
+                        if (e.target.srcObject) {
+                          e.target.load();
+                          e.target.play().catch(console.error);
+                        }
+                      }, 2000);
+                    }}
+                    onStalled={(e) => {
+                      console.warn(`⚠️ Remote video stalled for ${userId}`);
+                    }}
+                    onWaiting={(e) => {
+                      console.warn(`⏳ Remote video waiting for ${userId}`);
                     }}
                   />
+
+                  {/* Video status indicator */}
+                  <div className="absolute top-4 right-4 flex flex-col space-y-1">
+                    {stream && (
+                      <div className="bg-blue-600 text-white px-2 py-1 rounded text-xs">
+                        📡 Stream: {stream.active ? "Active" : "Inactive"}
+                      </div>
+                    )}
+                    {stream && stream.getTracks().length > 0 && (
+                      <div className="bg-green-600 text-white px-2 py-1 rounded text-xs">
+                        🎬 Tracks: {stream.getVideoTracks().length}V/
+                        {stream.getAudioTracks().length}A
+                      </div>
+                    )}
+                  </div>
+
                   <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-sm">
                     {userId}
                   </div>
@@ -1204,7 +1340,7 @@ export default function VideoCall() {
                     🗣️ {languages[userLang]?.split("(")[0] || "Unknown"}
                   </div>
                   {selectedLanguage !== userLang && (
-                    <div className="absolute top-4 right-4">
+                    <div className="absolute bottom-4 right-4">
                       <div className="bg-green-600 text-white px-2 py-1 rounded text-xs">
                         🔄 अनुवाद/Translate
                       </div>
@@ -1213,7 +1349,6 @@ export default function VideoCall() {
                 </div>
               );
             })}
-
             {/* Waiting message when no remote users */}
             {Object.keys(remoteStreams).length === 0 &&
               participants.length === 1 && (
