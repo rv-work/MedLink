@@ -1,31 +1,11 @@
-// VideoCall.jsx
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import translationService from "../utils/TranslationService";
 
-//
-// IMPORTANT NOTES BEFORE USING:
-// 1) For reliable TURN support in production you should fetch time-limited ICE credentials
-//    from a backend endpoint which itself calls a provider like Metered/OpenRelay.
-//    Example provider docs: Metered Open Relay (free tier / REST API). See: https://metered.ca/tools/openrelay/ :contentReference[oaicite:2]{index=2}
-// 2) This client will try to fetch iceServers from a configurable REST endpoint if provided.
-//    Otherwise it falls back to a safe list of STUN servers and a demo OpenRelay entry.
-//    Replace demo credentials with real ones from your provider/backend for production use.
-//
+const URL_WEB_SOCKET = "wss://medlink-bh5c.onrender.com/ws";
 
-// Use protocol-aware websocket URL (wss for https pages)
-const DEFAULT_WS_LOCAL = "wss://medlink-bh5c.onrender.com/ws";
-const URL_WEB_SOCKET =
-  window.__WS_URL ||
-  (location.protocol === "https:"
-    ? "wss://YOUR_SIGNALING_SERVER/ws"
-    : DEFAULT_WS_LOCAL);
-
-// Optional: client-side REST endpoint (or you can set on your backend) to get iceServers.
-// Recommended: create a backend route (e.g. /api/rtc/ice-servers) that fetches credentials from Metered/OpenRelay
-// and returns { iceServers: [...] } to the client. If not provided, fallback is used.
-const ICE_SERVERS_ENDPOINT = window.__ICE_SERVERS_ENDPOINT || null; // e.g. "https://your-backend.com/api/rtc/ice-servers"
+const ICE_SERVERS_ENDPOINT = window.__ICE_SERVERS_ENDPOINT || null;
 
 export default function VideoCall() {
   const ws = useRef(null);
