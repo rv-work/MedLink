@@ -23,6 +23,7 @@ export default function VideoCall() {
   const [showChat, setShowChat] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [isCallStarted, setIsCallStarted] = useState(false);
+  const [localStreamReady, setLocalStreamReady] = useState(false);
 
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
@@ -62,6 +63,7 @@ export default function VideoCall() {
       : `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // Setup media devices first, then connect WebSocket
   useEffect(() => {
     if (!channelName || !userName) {
       toast.error("Invalid consultation session");
@@ -69,12 +71,41 @@ export default function VideoCall() {
       return;
     }
 
+    const initializeCall = async () => {
+      try {
+        // Setup media devices first
+        await setupDevice();
+        // Then connect WebSocket
+        connectWebSocket();
+      } catch (error) {
+        console.error("Failed to initialize call:", error);
+        toast.error("Failed to initialize camera and microphone");
+        setConnectionStatus("error");
+      }
+    };
+
+    initializeCall();
+
+    return () => {
+      cleanup();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelName, userName, navigate]);
+
+  const connectWebSocket = () => {
+    if (ws.current) {
+      ws.current.close();
+    }
+
     ws.current = new WebSocket(URL_WEB_SOCKET);
 
     ws.current.onopen = () => {
       console.log("WebSocket connected");
       setConnectionStatus("connected");
-      setupDevice();
+      // Join channel only after WebSocket is connected and media is ready
+      if (localStreamReady) {
+        sendWsMessage("join", { channelName, userName });
+      }
     };
 
     ws.current.onclose = () => {
@@ -110,42 +141,63 @@ export default function VideoCall() {
           break;
       }
     };
-
-    return () => {
-      if (ws.current) {
-        sendWsMessage("quit", { channelName, userName });
-        ws.current.close();
-      }
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channelName, userName, navigate]);
+  };
 
   const sendWsMessage = useCallback((type, body) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       ws.current.send(JSON.stringify({ type, body }));
+    } else {
+      console.warn("WebSocket not ready, message not sent:", type);
     }
   }, []);
 
   const setupDevice = async () => {
     try {
+      // Stop any existing streams
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720 },
-        audio: { echoCancellation: true, noiseSuppression: true },
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: "user",
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
       });
 
+      localStreamRef.current = stream;
+      setLocalStreamReady(true);
+
+      // Set video element source and ensure it plays
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
+        try {
+          await localVideoRef.current.play();
+        } catch (playError) {
+          console.warn(
+            "Auto-play prevented, user interaction required:",
+            playError
+          );
+        }
       }
-      localStreamRef.current = stream;
 
-      sendWsMessage("join", { channelName, userName });
+      // Join channel if WebSocket is already connected
+      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+        sendWsMessage("join", { channelName, userName });
+      }
+
       toast.success("Camera and microphone connected");
     } catch (err) {
-      console.error("Error accessing camera/mic", err);
-      toast.error("Unable to access camera/microphone");
+      console.error("Error accessing camera/mic:", err);
+      toast.error(
+        "Unable to access camera/microphone. Please check permissions."
+      );
       setConnectionStatus("error");
     }
   };
@@ -172,16 +224,22 @@ export default function VideoCall() {
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun.services.mozilla.com" },
       ],
     });
 
+    // Add local stream tracks to peer connection
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
+        console.log("Adding track to peer connection:", track.kind);
         pc.addTrack(track, localStreamRef.current);
       });
+    } else {
+      console.warn("No local stream available when setting up peer connection");
     }
 
     pc.ontrack = (event) => {
+      console.log("Received remote track:", event.streams[0]);
       setRemoteStreams((prev) => ({
         ...prev,
         [remoteUserName]: event.streams[0],
@@ -211,11 +269,21 @@ export default function VideoCall() {
       );
     };
 
+    pc.oniceconnectionstatechange = () => {
+      console.log(
+        `ICE connection state with ${remoteUserName}:`,
+        pc.iceConnectionState
+      );
+    };
+
     peerConnectionsRef.current[remoteUserName] = pc;
 
     if (isOfferer) {
       try {
-        const offer = await pc.createOffer();
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true,
+        });
         await pc.setLocalDescription(offer);
         sendWsMessage("send_offer", {
           channelName,
@@ -234,6 +302,7 @@ export default function VideoCall() {
     if (!peerConnectionsRef.current[from]) {
       await setupPeerConnection(from, false);
     }
+
     const pc = peerConnectionsRef.current[from];
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -254,6 +323,7 @@ export default function VideoCall() {
   const handleAnswer = async (from, answer) => {
     const pc = peerConnectionsRef.current[from];
     if (!pc) return;
+
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(answer));
     } catch (err) {
@@ -264,6 +334,7 @@ export default function VideoCall() {
   const handleRemoteIceCandidate = async (from, candidate) => {
     const pc = peerConnectionsRef.current[from];
     if (!pc) return;
+
     try {
       await pc.addIceCandidate(new RTCIceCandidate(candidate));
     } catch (err) {
@@ -301,8 +372,9 @@ export default function VideoCall() {
           audio: true,
         });
 
-        // Replace video track in all peer connections
         const videoTrack = screenStream.getVideoTracks()[0];
+
+        // Replace video track in all peer connections
         Object.values(peerConnectionsRef.current).forEach((pc) => {
           const sender = pc
             .getSenders()
@@ -335,11 +407,13 @@ export default function VideoCall() {
   const stopScreenShare = async () => {
     if (localStreamRef.current) {
       const videoTrack = localStreamRef.current.getVideoTracks()[0];
+
+      // Replace screen share track with camera track in all peer connections
       Object.values(peerConnectionsRef.current).forEach((pc) => {
         const sender = pc
           .getSenders()
           .find((s) => s.track && s.track.kind === "video");
-        if (sender) {
+        if (sender && videoTrack) {
           sender.replaceTrack(videoTrack);
         }
       });
@@ -349,16 +423,31 @@ export default function VideoCall() {
         localVideoRef.current.srcObject = localStreamRef.current;
       }
     }
+
     setIsScreenSharing(false);
     toast.success("Screen sharing stopped");
   };
 
+  const cleanup = () => {
+    if (ws.current) {
+      sendWsMessage("quit", { channelName, userName });
+      ws.current.close();
+    }
+
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+    }
+
+    Object.values(peerConnectionsRef.current).forEach((pc) => {
+      pc.close();
+    });
+
+    peerConnectionsRef.current = {};
+  };
+
   const endCall = () => {
     if (window.confirm("Are you sure you want to end the call?")) {
-      sendWsMessage("quit", { channelName, userName });
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
+      cleanup();
       toast.success("Call ended");
 
       // Navigate back based on user type
@@ -489,7 +578,10 @@ export default function VideoCall() {
                     playsInline
                     className="w-full h-full object-cover"
                     ref={(video) => {
-                      if (video) video.srcObject = stream;
+                      if (video && video.srcObject !== stream) {
+                        video.srcObject = stream;
+                        video.play().catch(console.error);
+                      }
                     }}
                   />
                   <div className="absolute bottom-4 left-4 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
@@ -613,7 +705,7 @@ export default function VideoCall() {
 
               <button
                 onClick={() => setShowChat(!showChat)}
-                className={`p-3 rounded-full transition-colors ${
+                className={`p-3 rounded-full transition-colors relative ${
                   showChat
                     ? "bg-blue-600 text-white hover:bg-blue-700"
                     : "bg-gray-700 text-white hover:bg-gray-600"
