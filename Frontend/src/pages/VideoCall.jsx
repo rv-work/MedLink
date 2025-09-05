@@ -15,7 +15,7 @@ import translationService from "../utils/TranslationService";
 //
 
 // Use protocol-aware websocket URL (wss for https pages)
-const DEFAULT_WS_LOCAL = "wss:////medlink-bh5c.onrender.com/ws";
+const DEFAULT_WS_LOCAL = "wss://medlink-bh5c.onrender.com/ws";
 const URL_WEB_SOCKET =
   window.__WS_URL ||
   (location.protocol === "https:"
