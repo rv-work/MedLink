@@ -1,7 +1,10 @@
 import React, { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 
-const URL_WEB_SOCKET = "wss://https://medlink-bh5c.onrender.com/ws";
+const URL_WEB_SOCKET =
+  (window.location.protocol === "https:" ? "wss://" : "ws://") +
+  window.location.host +
+  "/ws";
 
 export default function VideoCall() {
   const ws = useRef(null);
