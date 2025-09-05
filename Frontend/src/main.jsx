@@ -6,7 +6,6 @@ import "./index.css";
 import { Toaster } from "react-hot-toast";
 import { Web3Provider } from "./context/Web3Context.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
-import { SocketProvider } from "./context/SocketContext.jsx";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
@@ -14,10 +13,8 @@ root.render(
     <BrowserRouter>
       <AuthProvider>
         <Web3Provider>
-          <SocketProvider>
-            <Toaster position="top-right" reverseOrder={false} />
-            <App />
-          </SocketProvider>
+          <Toaster position="top-right" reverseOrder={false} />
+          <App />
         </Web3Provider>
       </AuthProvider>
     </BrowserRouter>
