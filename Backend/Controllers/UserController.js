@@ -205,6 +205,25 @@ export const UploadUserReportWeb3 = async (req, res) => {
       } else {
         parsedVitals = vitals;
       }
+       ["weightRecords", "heightRecords"].forEach(key => {
+        if (Array.isArray(parsedVitals[key])) {
+          parsedVitals[key] = parsedVitals[key].map(record => {
+            const rawDate = Array.isArray(record.date) ? record.date[0] : record.date;
+            const dateObj = rawDate ? new Date(rawDate) : undefined;
+            return {
+              ...record,
+              date: dateObj && !isNaN(dateObj) ? dateObj : undefined
+            };
+          });
+        }
+      });
+    }
+
+
+    const rawDate = Array.isArray(dateOfReport) ? dateOfReport[0] : dateOfReport;
+    const safeDate = rawDate ? new Date(rawDate) : undefined;
+    if (!safeDate || isNaN(safeDate)) {
+      return res.status(400).json({ success: false, message: "Invalid dateOfReport" });
     }
 
     // Create new report (same as Web2 but without file attachments)
@@ -483,7 +502,7 @@ export const createTreatmentFromReport = async (reportId, userId ) => {
   }
 };
 
-// Updated UploadUserReportWeb2 function with treatment creation
+
 export const UploadUserReportWeb2 = async (req, res) => {
   try {
     const {
@@ -504,62 +523,61 @@ export const UploadUserReportWeb2 = async (req, res) => {
     } = req.body;
 
     if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Please login to upload report"
-      });
+      return res.status(401).json({ success: false, message: "Please login to upload report" });
     }
 
     if (!patientName || !doctorName || !hospital || !diagnosisSummary || !reasonOfCheckup || !prescription || !dateOfReport) {
-      return res.status(400).json({
-        success: false,
-        message: "All required fields must be filled"
-      });
+      return res.status(400).json({ success: false, message: "All required fields must be filled" });
     }
 
     if (!req.files?.reportFiles || req.files.reportFiles.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Please upload at least one report file"
-      });
+      return res.status(400).json({ success: false, message: "Please upload at least one report file" });
     }
-    
 
-    let medId = "Not Availble";
-    if(isIdAvailable){
-     medId = doctorMedlinkId
-    }
-    
+    // Handle doctor ID
+    let medId = isIdAvailable ? doctorMedlinkId : "Not Available";
 
-    
-
+    // Parse medicines
     let parsedMedicines = medicines;
-    if (typeof medicines === 'string') {
+    if (typeof medicines === "string") {
       try {
         parsedMedicines = JSON.parse(medicines);
       } catch (e) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid JSON format for medicines"
-        });
+        return res.status(400).json({ success: false, message: "Invalid JSON format for medicines" });
       }
     }
 
+    // Parse vitals
     let parsedVitals = {};
     if (vitals) {
-      if (typeof vitals === 'string') {
+      if (typeof vitals === "string") {
         try {
           parsedVitals = JSON.parse(vitals);
         } catch (e) {
           console.warn("Invalid vitals format, using empty object");
+          parsedVitals = {};
         }
       } else {
         parsedVitals = vitals;
       }
+
+      // Sanitize embedded dates in vitals (like weightRecords, heightRecords)
+      ["weightRecords", "heightRecords"].forEach(key => {
+        if (Array.isArray(parsedVitals[key])) {
+          parsedVitals[key] = parsedVitals[key].map(record => {
+            const rawDate = Array.isArray(record.date) ? record.date[0] : record.date;
+            const dateObj = rawDate ? new Date(rawDate) : undefined;
+            return {
+              ...record,
+              date: dateObj && !isNaN(dateObj) ? dateObj : undefined
+            };
+          });
+        }
+      });
     }
 
+    // Prepare attachments
     const attachments = [];
-    
     if (req.files.reportFiles) {
       req.files.reportFiles.forEach(file => {
         attachments.push({
@@ -569,15 +587,23 @@ export const UploadUserReportWeb2 = async (req, res) => {
         });
       });
     }
-    
+
     if (req.files.medicineFile && req.files.medicineFile[0]) {
       attachments.push({
         fileUrl: req.files.medicineFile[0].path,
-        fileName: 'Medicine List',
+        fileName: "Medicine List",
         fileType: req.files.medicineFile[0].mimetype
       });
     }
 
+    // Handle top-level date
+    const rawDate = Array.isArray(dateOfReport) ? dateOfReport[0] : dateOfReport;
+    const safeDate = rawDate ? new Date(rawDate) : undefined;
+    if (!safeDate || isNaN(safeDate)) {
+      return res.status(400).json({ success: false, message: "Invalid dateOfReport" });
+    }
+
+    // Create and save report
     const newReport = new HealthReport({
       owner: req.user._id,
       patientName,
@@ -586,12 +612,12 @@ export const UploadUserReportWeb2 = async (req, res) => {
       diagnosisSummary,
       reasonOfCheckup,
       prescription,
-      doctorMedlinkId : medId,
+      doctorMedlinkId: medId,
       medicines: parsedMedicines || [],
-      dateOfReport: new Date(dateOfReport),
+      dateOfReport: safeDate,
       attachments,
-      reportType: reportType || 'Other',
-      department: department || '',
+      reportType: reportType || "Other",
+      department: department || "",
       vitals: parsedVitals,
       ageAtReport: ageAtReport ? parseInt(ageAtReport) : undefined,
       type: "web2",
@@ -600,25 +626,27 @@ export const UploadUserReportWeb2 = async (req, res) => {
 
     const savedReport = await newReport.save();
 
+    // Update user with report
     const updatedUser = await UserModel.findByIdAndUpdate(
       req.user._id,
       { $push: { reports: savedReport._id } },
       { new: true }
     );
 
-    await updateUserVitalsFromReport(req.user._id, parsedVitals, dateOfReport);
+    // Update user vitals safely
+    await updateUserVitalsFromReport(req.user._id, parsedVitals, safeDate);
 
-    // Create treatment if medicines are present
+    // Create treatment if medicines exist
     let treatment = null;
     if (parsedMedicines && parsedMedicines.length > 0) {
       try {
-        treatment = await createTreatmentFromReport(savedReport._id, req.user._id );
+        treatment = await createTreatmentFromReport(savedReport._id, req.user._id);
       } catch (treatmentError) {
-        console.warn('Failed to create treatment:', treatmentError.message);
-        // Don't fail the whole request if treatment creation fails
+        console.warn("Failed to create treatment:", treatmentError.message);
       }
     }
 
+    // Respond
     return res.status(201).json({
       success: true,
       message: "Report uploaded successfully" + (treatment ? " and treatment created" : ""),
@@ -643,13 +671,14 @@ export const UploadUserReportWeb2 = async (req, res) => {
     });
 
   } catch (err) {
-    console.error('UploadUserReportWeb2 Error:', err);
+    console.error("UploadUserReportWeb2 Error:", err);
     return res.status(500).json({
       success: false,
-      message: 'Server error occurred while uploading report'
+      message: "Server error occurred while uploading report"
     });
   }
 };
+
 
 // Get active treatments for user
 export const getActiveTreatments = async (req, res) => {
