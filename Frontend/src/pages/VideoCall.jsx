@@ -23,7 +23,9 @@ export default function SimpleVideoCall() {
     });
 
     localStreamRef.current = stream;
-    localVideoRef.current.srcObject = stream;
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = stream;
+    }
   };
 
   // WebSocket connection
@@ -44,17 +46,18 @@ export default function SimpleVideoCall() {
       const { type, body } = JSON.parse(message.data);
 
       if (type === "joined") {
-        // Handle new users
+        // Existing users in the room
         body.forEach((user) => {
           if (user.userName !== userName) {
-            createPeerConnection(user.userName);
+            createPeerConnection(user.userName, true); // I joined later, so I'm initiator
           }
         });
       }
 
       if (type === "offer_sdp_received") {
         const pc = peerConnectionsRef.current[body.from];
-        await pc.setRemoteDescription(body.sdp);
+        if (!pc) return;
+        await pc.setRemoteDescription(new RTCSessionDescription(body.sdp));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
@@ -74,34 +77,47 @@ export default function SimpleVideoCall() {
 
       if (type === "answer_sdp_received") {
         const pc = peerConnectionsRef.current[body.from];
-        await pc.setRemoteDescription(body.sdp);
+        if (!pc) return;
+        await pc.setRemoteDescription(new RTCSessionDescription(body.sdp));
       }
 
       if (type === "ice_candidate_received") {
         const pc = peerConnectionsRef.current[body.from];
-        await pc.addIceCandidate(body.candidate);
+        if (pc && body.candidate) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(body.candidate));
+          } catch (err) {
+            console.error("Error adding ICE candidate", err);
+          }
+        }
       }
     };
   };
 
   // Create WebRTC connection
-  const createPeerConnection = async (remoteUserName) => {
+  const createPeerConnection = async (remoteUserName, isInitiator = false) => {
     const pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun.services.mozilla.com" },
+      ],
     });
 
     peerConnectionsRef.current[remoteUserName] = pc;
 
-    // Add local stream
+    // Add local tracks
     localStreamRef.current.getTracks().forEach((track) => {
       pc.addTrack(track, localStreamRef.current);
     });
 
     // Get remote stream
     pc.ontrack = (event) => {
+      const [remoteStream] = event.streams;
       setRemoteStreams((prev) => ({
         ...prev,
-        [remoteUserName]: event.streams[0],
+        [remoteUserName]: remoteStream,
       }));
     };
 
@@ -123,8 +139,8 @@ export default function SimpleVideoCall() {
       }
     };
 
-    // Create offer if needed
-    if (userName < remoteUserName) {
+    // If I'm initiator → create offer
+    if (isInitiator) {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
