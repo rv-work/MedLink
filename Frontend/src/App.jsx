@@ -1,4 +1,3 @@
-// App.jsx - Updated with consultation routes
 import { Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -25,8 +24,6 @@ import DoctorTreatmentDetail from "./pages/DoctorTreatmentDeatial";
 import CreateConsultation from "./pages/CreateConsultation";
 import ConsultantRequests from "./pages/ConsultantRequests";
 import WaitingForDoctor from "./pages/WaitingForDoctor";
-import PatientConsultation from "./pages/PatientConsultation";
-import DoctorConsultation from "./pages/DoctorConsultation";
 
 // Clinic Components
 import SellerRegister from "./pages/RegisterClinic";
@@ -76,17 +73,16 @@ function App() {
         />
         <Route
           path="/patient/consultation/:consultationId"
-          element={<PatientConsultation />}
+          element={<VideoCall />}
         />
 
         {/* Doctor Consultation Routes */}
         <Route path="/doctor/consultants" element={<ConsultantRequests />} />
         <Route
           path="/doctor/consultation/:consultationId"
-          element={<DoctorConsultation />}
+          element={<VideoCall />}
         />
 
-        {/* Clinic Routes */}
         <Route path="/clinic/register" element={<SellerRegister />} />
         <Route path="/clinic/my-medicines" element={<ManageMedicines />} />
         <Route path="/clinic/add-medicine" element={<AddMedicine />} />

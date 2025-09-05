@@ -34,7 +34,8 @@ const ConsultantRequests = () => {
     try {
       const queryParams = new URLSearchParams();
       Object.keys(filters).forEach((key) => {
-        if (filters[key]) queryParams.append(key, filters[key]);
+        if (filters[key] && filters[key] !== "All")
+          queryParams.append(key, filters[key]);
       });
 
       const response = await fetch(
@@ -43,10 +44,12 @@ const ConsultantRequests = () => {
           credentials: "include",
         }
       );
-
       const data = await response.json();
+
       if (data.success) {
         setConsultations(data.consultations);
+      } else {
+        toast.error(data.message || "Failed to load consultation requests");
       }
     } catch (error) {
       console.error("Error fetching consultations:", error);
@@ -56,7 +59,7 @@ const ConsultantRequests = () => {
     }
   };
 
-  const handleAcceptConsultation = async (consultationId) => {
+  const handleAcceptConsultation = async (consultationId, patientId) => {
     try {
       const response = await fetch(
         `https://medlink-bh5c.onrender.com/api/consultation/${consultationId}/accept`,
@@ -75,8 +78,15 @@ const ConsultantRequests = () => {
       const data = await response.json();
       if (data.success) {
         toast.success("Consultation accepted successfully!");
-        // Navigate to consultation room
-        navigate(`/doctor/consultation/${consultationId}`);
+
+        // Create video call URL with proper parameters
+        const channelName = `consultation-${consultationId}`;
+        const userName = `doctor-${data.doctorId || "doc"}`;
+
+        // Navigate to consultation room with parameters
+        navigate(
+          `/doctor/consultation/${consultationId}?channelName=${channelName}&userName=${userName}`
+        );
       } else {
         toast.error(data.message || "Failed to accept consultation");
       }
@@ -109,7 +119,7 @@ const ConsultantRequests = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading consultation requests...</p>
         </div>
       </div>
@@ -117,197 +127,181 @@ const ConsultantRequests = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-6xl mx-auto px-4">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Consultation Requests
-          </h1>
-          <p className="text-gray-600">
-            Review and accept patient consultation requests
-          </p>
-        </div>
+        <div className="bg-white rounded-xl shadow-lg mb-6">
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-8 rounded-t-xl text-white">
+            <h1 className="text-3xl font-bold mb-2">Consultation Requests</h1>
+            <p className="opacity-90">
+              Review and accept patient consultation requests
+            </p>
+          </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Filters</h2>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Consultation Type
-              </label>
-              <select
-                value={filters.consultationType}
-                onChange={(e) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    consultationType: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {consultationTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Urgency Level
-              </label>
-              <select
-                value={filters.urgency}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, urgency: e.target.value }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">All Urgency Levels</option>
-                {urgencyLevels
-                  .filter((level) => level)
-                  .map((level) => (
+          {/* Filters */}
+          <div className="p-6 border-b">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Consultation Type
+                </label>
+                <select
+                  value={filters.consultationType}
+                  onChange={(e) =>
+                    setFilters({ ...filters, consultationType: e.target.value })
+                  }
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {consultationTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Urgency Level
+                </label>
+                <select
+                  value={filters.urgency}
+                  onChange={(e) =>
+                    setFilters({ ...filters, urgency: e.target.value })
+                  }
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">All Urgency Levels</option>
+                  {urgencyLevels.slice(1).map((level) => (
                     <option key={level} value={level}>
                       {level}
                     </option>
                   ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Status
-              </label>
-              <select
-                value={filters.status}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, status: e.target.value }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="pending">Pending</option>
-                <option value="accepted">Accepted</option>
-                <option value="in-progress">In Progress</option>
-                <option value="completed">Completed</option>
-              </select>
+                </select>
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  onClick={fetchConsultations}
+                  className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  Refresh
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Consultation Cards */}
-        <div className="space-y-4">
-          {consultations.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-              <div className="text-gray-400 text-6xl mb-4">🩺</div>
-              <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                No Consultation Requests
-              </h3>
-              <p className="text-gray-500">
-                There are no consultation requests matching your filters.
-              </p>
+        {/* Consultations List */}
+        {consultations.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+            <div className="text-gray-400 mb-4">
+              <svg
+                className="mx-auto h-16 w-16"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1}
+                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                />
+              </svg>
             </div>
-          ) : (
-            consultations.map((consultation) => (
+            <p className="text-xl text-gray-500">
+              There are no consultation requests matching your filters.
+            </p>
+            <p className="text-gray-400 mt-2">
+              Try adjusting your filter criteria or check back later.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {consultations.map((consultation) => (
               <div
                 key={consultation._id}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+                className="bg-white rounded-xl shadow-lg overflow-hidden"
               >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <h3 className="text-xl font-semibold text-gray-800">
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">
                         {consultation.problemTitle}
                       </h3>
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium border ${getUrgencyColor(
-                          consultation.urgency
-                        )}`}
-                      >
-                        {consultation.urgency}
-                      </span>
-                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                        {consultation.consultationType}
-                      </span>
+                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                        <span
+                          className={`px-3 py-1 rounded-full font-medium border ${getUrgencyColor(
+                            consultation.urgency
+                          )}`}
+                        >
+                          {consultation.urgency}
+                        </span>
+                        <span>{consultation.consultationType}</span>
+                        <span>{formatDate(consultation.createdAt)}</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() =>
+                        handleAcceptConsultation(
+                          consultation._id,
+                          consultation.patient?._id
+                        )
+                      }
+                      className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
+                    >
+                      Accept Consultation
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-semibold text-gray-700 mb-2">
+                        Patient Information
+                      </h4>
+                      <div className="space-y-1 text-sm">
+                        <p>
+                          <span className="font-medium">Name:</span>{" "}
+                          {consultation.patient?.name || "N/A"}
+                        </p>
+                        <p>
+                          <span className="font-medium">Email:</span>{" "}
+                          {consultation.patient?.email || "N/A"}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <p className="text-sm font-medium text-gray-600 mb-1">
-                          Patient
+                    <div>
+                      <h4 className="font-semibold text-gray-700 mb-2">
+                        Consultation Details
+                      </h4>
+                      <div className="space-y-1 text-sm">
+                        <p>
+                          <span className="font-medium">Type:</span>{" "}
+                          {consultation.consultationType}
                         </p>
-                        <div className="flex items-center space-x-2">
-                          <img
-                            src={
-                              consultation.patient.profilePicture ||
-                              "/api/placeholder/32/32"
-                            }
-                            alt={consultation.patient.name}
-                            className="w-8 h-8 rounded-full"
-                          />
-                          <div>
-                            <p className="font-medium text-gray-800">
-                              {consultation.patient.name}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {consultation.patient.email}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-600 mb-1">
-                          Requested On
-                        </p>
-                        <p className="text-gray-800">
+                        <p>
+                          <span className="font-medium">Requested On:</span>{" "}
                           {formatDate(consultation.createdAt)}
                         </p>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-600 mb-2">
-                        Problem Description
-                      </p>
-                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
-                        {consultation.problemDescription}
-                      </p>
-                    </div>
+                  <div className="mt-4">
+                    <h4 className="font-semibold text-gray-700 mb-2">
+                      Problem Description
+                    </h4>
+                    <p className="text-gray-600 leading-relaxed">
+                      {consultation.problemDescription}
+                    </p>
                   </div>
                 </div>
-
-                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                  <button
-                    onClick={() =>
-                      navigate(`/consultation/${consultation._id}`)
-                    }
-                    className="px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition duration-200"
-                  >
-                    View Details
-                  </button>
-                  {consultation.status === "pending" && (
-                    <button
-                      onClick={() => handleAcceptConsultation(consultation._id)}
-                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 font-medium"
-                    >
-                      Accept Consultation
-                    </button>
-                  )}
-                  {consultation.status === "accepted" && (
-                    <button
-                      onClick={() =>
-                        navigate(`/doctor/consultation/${consultation._id}`)
-                      }
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-medium"
-                    >
-                      Join Consultation
-                    </button>
-                  )}
-                </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
