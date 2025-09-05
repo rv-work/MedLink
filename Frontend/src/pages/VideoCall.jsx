@@ -4,7 +4,6 @@ import { toast } from "react-hot-toast";
 import translationService from "../utils/TranslationService";
 
 const URL_WEB_SOCKET = "wss://medlink-bh5c.onrender.com/ws";
-
 const ICE_SERVERS_ENDPOINT = window.__ICE_SERVERS_ENDPOINT || null;
 
 export default function VideoCall() {
@@ -17,7 +16,7 @@ export default function VideoCall() {
   const navigate = useNavigate();
   const { consultationId } = useParams();
   const pendingCandidatesRef = useRef({});
-  const queuedRemoteCandidatesRef = useRef({}); // queue candidates received before PC exists
+  const isInitiatorRef = useRef({}); // Track who should initiate offer
 
   const [remoteStreams, setRemoteStreams] = useState({});
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
@@ -76,26 +75,19 @@ export default function VideoCall() {
     return () => clearInterval(interval);
   }, [isCallStarted]);
 
-  // --- SpeechRecognition init ---
+  // Speech Recognition setup
   useEffect(() => {
     if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
       const SpeechRecognition =
         window.SpeechRecognition || window.webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = selectedLanguage;
       recognitionRef.current.maxAlternatives = 3;
-
       recognitionRef.current.onresult = handleSpeechResult;
       recognitionRef.current.onerror = (event) => {
         console.error("Speech recognition error:", event.error);
-        if (event.error === "no-speech") {
-          toast.error("कोई आवाज़ नहीं सुनाई दी / No speech detected");
-        } else if (event.error === "network") {
-          toast.error("नेटवर्क की समस्या / Network error");
-        }
         setIsListening(false);
       };
       recognitionRef.current.onend = () => {
@@ -109,8 +101,7 @@ export default function VideoCall() {
         }
       };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLanguage]);
+  }, [selectedLanguage, isListening]);
 
   const formatDuration = (seconds) => {
     const hrs = Math.floor(seconds / 3600);
@@ -133,8 +124,6 @@ export default function VideoCall() {
             console.log("Using iceServers from configured endpoint");
             return json.iceServers;
           }
-        } else {
-          console.warn("ICE_SERVERS_ENDPOINT returned non-OK:", res.status);
         }
       }
     } catch (err) {
@@ -142,19 +131,15 @@ export default function VideoCall() {
     }
 
     const fallback = [
-      // Public STUN (reliable)
       { urls: "stun:stun.l.google.com:19302" },
       { urls: "stun:stun1.l.google.com:19302" },
       { urls: "stun:stun2.l.google.com:19302" },
       { urls: "stun:stun3.l.google.com:19302" },
       { urls: "stun:stun.services.mozilla.com" },
       { urls: "stun:stun.stunprotocol.org:3478" },
-
-      // Free TURN (for testing only, not 100% reliable)
       {
         urls: [
           "stun:relay.metered.ca:80",
-          "stun:relay.metered.ca:443",
           "turn:relay.metered.ca:80",
           "turn:relay.metered.ca:443",
           "turn:relay.metered.ca:443?transport=tcp",
@@ -165,20 +150,21 @@ export default function VideoCall() {
     ];
 
     console.warn(
-      "Using fallback ICE servers. For production, configure an ICE_SERVERS_ENDPOINT to fetch provider credentials."
+      "Using fallback ICE servers. For production, configure an ICE_SERVERS_ENDPOINT."
     );
     return fallback;
   };
 
-  // -----------------------------
-  // WebSocket (signalling) setup
-  // -----------------------------
+  // WebSocket setup
   useEffect(() => {
     if (!channelName || !userName) {
       toast.error("Invalid consultation session");
       navigate("/dashboard");
       return;
     }
+
+    // Setup local video first
+    setupLocalVideo();
 
     try {
       ws.current = new WebSocket(URL_WEB_SOCKET);
@@ -192,14 +178,16 @@ export default function VideoCall() {
     ws.current.onopen = () => {
       console.log("WebSocket connected");
       setConnectionStatus("connected");
-      setupDevice();
+      // Join the channel after local video is set up
+      if (localStreamRef.current) {
+        joinChannel();
+      }
     };
 
     ws.current.onclose = () => {
       console.log("WebSocket closed");
       setConnectionStatus("disconnected");
       toast.error("Connection lost. Attempting to reconnect...");
-      // Optionally implement reconnect logic here
     };
 
     ws.current.onerror = (error) => {
@@ -211,6 +199,8 @@ export default function VideoCall() {
     ws.current.onmessage = (message) => {
       try {
         const { type, body } = JSON.parse(message.data);
+        console.log("Received message:", type, body);
+
         switch (type) {
           case "joined":
             handleJoined(body);
@@ -244,54 +234,11 @@ export default function VideoCall() {
     return () => {
       cleanup();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelName, userName, navigate]);
 
-  const cleanup = () => {
-    if (ws.current) {
-      sendWsMessage("quit", { channelName, userName });
-      try {
-        ws.current.close();
-      } catch (e) {}
-      ws.current = null;
-    }
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => track.stop());
-      localStreamRef.current = null;
-    }
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (err) {}
-      recognitionRef.current = null;
-    }
-    Object.values(peerConnectionsRef.current).forEach((pc) => {
-      try {
-        pc.close();
-      } catch (e) {}
-    });
-    peerConnectionsRef.current = {};
-    pendingCandidatesRef.current = {};
-    queuedRemoteCandidatesRef.current = {};
-  };
-
-  const sendWsMessage = useCallback((type, body) => {
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      try {
-        ws.current.send(JSON.stringify({ type, body }));
-      } catch (error) {
-        console.error("Error sending WebSocket message:", error);
-      }
-    } else {
-      console.warn("WebSocket not open; cannot send message:", type);
-    }
-  }, []);
-
-  // -----------------------------
-  // Device setup
-  // -----------------------------
-  const setupDevice = async () => {
+  const setupLocalVideo = async () => {
     try {
+      console.log("Setting up local video...");
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280, max: 1920 },
@@ -307,6 +254,7 @@ export default function VideoCall() {
       });
 
       localStreamRef.current = stream;
+      console.log("Local stream obtained:", stream);
 
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
@@ -315,17 +263,16 @@ export default function VideoCall() {
           setLocalVideoReady(true);
           localVideoRef.current.play().catch((error) => {
             console.warn("Auto-play prevented:", error);
-            toast.error("Click on your video to enable playback");
           });
         };
       }
 
-      sendWsMessage("join", {
-        channelName,
-        userName,
-        language: selectedLanguage,
-      });
       toast.success("Camera and microphone connected");
+
+      // If WebSocket is already connected, join the channel
+      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+        joinChannel();
+      }
     } catch (err) {
       console.error("Error accessing camera/mic", err);
       if (err.name === "NotAllowedError") {
@@ -341,12 +288,68 @@ export default function VideoCall() {
     }
   };
 
-  // -----------------------------
-  // Peer connection setup (uses getIceServers)
-  // -----------------------------
-  const setupPeerConnection = async (remoteUserName, isOfferer = false) => {
+  const joinChannel = () => {
+    console.log("Joining channel...");
+    sendWsMessage("join", {
+      channelName,
+      userName,
+      language: selectedLanguage,
+    });
+  };
+
+  const cleanup = () => {
+    console.log("Cleaning up...");
+
+    if (ws.current) {
+      sendWsMessage("quit", { channelName, userName });
+      try {
+        ws.current.close();
+      } catch (e) {}
+      ws.current = null;
+    }
+
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (err) {}
+      recognitionRef.current = null;
+    }
+
+    Object.values(peerConnectionsRef.current).forEach((pc) => {
+      try {
+        pc.close();
+      } catch (e) {}
+    });
+
+    peerConnectionsRef.current = {};
+    pendingCandidatesRef.current = {};
+    isInitiatorRef.current = {};
+  };
+
+  const sendWsMessage = useCallback((type, body) => {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      try {
+        console.log("Sending message:", type, body);
+        ws.current.send(JSON.stringify({ type, body }));
+      } catch (error) {
+        console.error("Error sending WebSocket message:", error);
+      }
+    } else {
+      console.warn("WebSocket not open; cannot send message:", type);
+    }
+  }, []);
+
+  const setupPeerConnection = async (
+    remoteUserName,
+    shouldCreateOffer = false
+  ) => {
     console.log(
-      `Setting up peer connection with ${remoteUserName}, isOfferer: ${isOfferer}`
+      `Setting up peer connection with ${remoteUserName}, shouldCreateOffer: ${shouldCreateOffer}`
     );
 
     if (peerConnectionsRef.current[remoteUserName]) {
@@ -354,7 +357,17 @@ export default function VideoCall() {
       return;
     }
 
-    // get iceServers configuration
+    if (!localStreamRef.current) {
+      console.warn(
+        "Local stream not available, delaying peer connection setup"
+      );
+      setTimeout(
+        () => setupPeerConnection(remoteUserName, shouldCreateOffer),
+        1000
+      );
+      return;
+    }
+
     let iceServers = [];
     try {
       iceServers = await getIceServers();
@@ -367,68 +380,63 @@ export default function VideoCall() {
       iceCandidatePoolSize: 10,
     });
 
-    // init pending arrays
-    if (!pendingCandidatesRef.current[remoteUserName]) {
-      pendingCandidatesRef.current[remoteUserName] = [];
-    }
-    if (!queuedRemoteCandidatesRef.current[remoteUserName]) {
-      queuedRemoteCandidatesRef.current[remoteUserName] = [];
-    }
+    // Initialize pending candidates array
+    pendingCandidatesRef.current[remoteUserName] = [];
+    isInitiatorRef.current[remoteUserName] = shouldCreateOffer;
 
-    let remoteDescriptionSet = false;
+    // Add local tracks
+    localStreamRef.current.getTracks().forEach((track) => {
+      try {
+        console.log(`Adding local track to peer connection: ${track.kind}`);
+        pc.addTrack(track, localStreamRef.current);
+      } catch (err) {
+        console.warn("Error adding local track:", err);
+      }
+    });
 
-    // Add local tracks if available
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => {
-        try {
-          pc.addTrack(track, localStreamRef.current);
-        } catch (err) {
-          console.warn("Error adding local track:", err);
-        }
-      });
-    } else {
-      console.warn(
-        "Local stream not available when setting up peer connection"
-      );
-    }
-
+    // Handle remote tracks
     pc.ontrack = (event) => {
-      console.log(`Received remote track from ${remoteUserName}:`, event);
+      console.log(
+        `Received remote track from ${remoteUserName}:`,
+        event.track.kind
+      );
       if (event.streams && event.streams[0]) {
         setRemoteStreams((prev) => ({
           ...prev,
           [remoteUserName]: event.streams[0],
         }));
+        console.log(`Remote stream set for ${remoteUserName}`);
       }
     };
 
+    // Handle ICE candidates
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         console.log(`ICE candidate for ${remoteUserName}:`, event.candidate);
-        if (remoteDescriptionSet) {
-          sendWsMessage("send_ice_candidate", {
-            channelName,
-            userName,
-            from: userName,
-            to: remoteUserName,
-            candidate: {
-              candidate: event.candidate.candidate,
-              sdpMid: event.candidate.sdpMid,
-              sdpMLineIndex: event.candidate.sdpMLineIndex,
-            },
-          });
-        } else {
-          pendingCandidatesRef.current[remoteUserName].push(event.candidate);
-        }
+        sendWsMessage("send_ice_candidate", {
+          channelName,
+          userName,
+          from: userName,
+          to: remoteUserName,
+          candidate: {
+            candidate: event.candidate.candidate,
+            sdpMid: event.candidate.sdpMid,
+            sdpMLineIndex: event.candidate.sdpMLineIndex,
+          },
+        });
       }
     };
 
+    // Connection state changes
     pc.onconnectionstatechange = () => {
       console.log(
         `Connection state for ${remoteUserName}:`,
         pc.connectionState
       );
-      if (pc.connectionState === "failed") {
+      if (pc.connectionState === "connected") {
+        console.log(`Successfully connected to ${remoteUserName}`);
+        toast.success(`Connected to ${remoteUserName}`);
+      } else if (pc.connectionState === "failed") {
         console.log(
           `Connection failed for ${remoteUserName}, attempting restart`
         );
@@ -442,8 +450,6 @@ export default function VideoCall() {
           delete updated[remoteUserName];
           return updated;
         });
-      } else if (pc.connectionState === "connected") {
-        console.log(`Successfully connected to ${remoteUserName}`);
       }
     };
 
@@ -456,60 +462,8 @@ export default function VideoCall() {
 
     peerConnectionsRef.current[remoteUserName] = pc;
 
-    // helper: process pending local candidates queued before remote description was set
-    const processPendingCandidates = async () => {
-      const pending = pendingCandidatesRef.current[remoteUserName] || [];
-      console.log(
-        `Processing ${pending.length} pending local candidates for ${remoteUserName}`
-      );
-      for (const candidate of pending) {
-        try {
-          sendWsMessage("send_ice_candidate", {
-            channelName,
-            userName,
-            from: userName,
-            to: remoteUserName,
-            candidate: {
-              candidate: candidate.candidate,
-              sdpMid: candidate.sdpMid,
-              sdpMLineIndex: candidate.sdpMLineIndex,
-            },
-          });
-        } catch (err) {
-          console.error("Error sending pending candidate:", err);
-        }
-      }
-      pendingCandidatesRef.current[remoteUserName] = [];
-    };
-
-    pc.processPendingCandidates = processPendingCandidates;
-    pc.setRemoteDescriptionSet = (value) => {
-      remoteDescriptionSet = value;
-      if (value) {
-        // after remote description set, process locally queued ICE candidates
-        processPendingCandidates();
-        // also add any queued remote candidates that were received before PC existed
-        const queued = queuedRemoteCandidatesRef.current[remoteUserName] || [];
-        if (queued.length > 0) {
-          (async () => {
-            for (const cand of queued) {
-              try {
-                await pc.addIceCandidate(new RTCIceCandidate(cand));
-                console.log(
-                  "Added previously queued remote candidate for",
-                  remoteUserName
-                );
-              } catch (err) {
-                console.error("Error adding queued remote candidate:", err);
-              }
-            }
-            queuedRemoteCandidatesRef.current[remoteUserName] = [];
-          })();
-        }
-      }
-    };
-
-    if (isOfferer) {
+    // Create offer if this peer should initiate
+    if (shouldCreateOffer) {
       try {
         console.log(`Creating offer for ${remoteUserName}`);
         const offer = await pc.createOffer({
@@ -528,26 +482,39 @@ export default function VideoCall() {
         console.error(`Error creating offer for ${remoteUserName}:`, err);
       }
     }
+
+    return pc;
   };
 
-  // -----------------------------
-  // Offer / Answer / ICE handlers
-  // -----------------------------
   const handleOffer = async (from, offer) => {
     console.log(`Handling offer from ${from}`);
-    if (!peerConnectionsRef.current[from]) {
-      await setupPeerConnection(from, false);
+
+    let pc = peerConnectionsRef.current[from];
+    if (!pc) {
+      // Create peer connection but don't create offer (we're answering)
+      pc = await setupPeerConnection(from, false);
     }
 
-    const pc = peerConnectionsRef.current[from];
     if (!pc) {
       console.error(`No peer connection found for ${from}`);
       return;
     }
 
     try {
+      console.log(`Setting remote description for ${from}`);
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
-      pc.setRemoteDescriptionSet?.(true);
+
+      // Process any pending ICE candidates
+      const pending = pendingCandidatesRef.current[from] || [];
+      for (const candidate of pending) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          console.log(`Added pending ICE candidate for ${from}`);
+        } catch (err) {
+          console.error("Error adding pending candidate:", err);
+        }
+      }
+      pendingCandidatesRef.current[from] = [];
 
       console.log(`Creating answer for ${from}`);
       const answer = await pc.createAnswer();
@@ -568,44 +535,115 @@ export default function VideoCall() {
   const handleAnswer = async (from, answer) => {
     console.log(`Handling answer from ${from}`);
     const pc = peerConnectionsRef.current[from];
+
     if (!pc) {
       console.error(`No peer connection found for ${from}`);
       return;
     }
 
     try {
-      await pc.setRemoteDescription(new RTCSessionDescription(answer));
-      pc.setRemoteDescriptionSet?.(true);
+      if (pc.signalingState === "have-local-offer") {
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        console.log(`Remote description set for ${from}`);
+
+        // Process any pending ICE candidates
+        const pending = pendingCandidatesRef.current[from] || [];
+        for (const candidate of pending) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            console.log(`Added pending ICE candidate for ${from}`);
+          } catch (err) {
+            console.error("Error adding pending candidate:", err);
+          }
+        }
+        pendingCandidatesRef.current[from] = [];
+      } else {
+        console.warn(
+          `Invalid state for setting remote description: ${pc.signalingState}`
+        );
+      }
     } catch (err) {
       console.error(`Error handling answer from ${from}:`, err);
     }
   };
 
   const handleRemoteIceCandidate = async (from, candidate) => {
-    // If pc exists, add; otherwise queue candidate for when pc is created
+    console.log(`Received ICE candidate from ${from}`);
     const pc = peerConnectionsRef.current[from];
+
     if (!pc) {
       console.warn(
-        `No peer connection found for ${from}, queuing ICE candidate`
+        `No peer connection found for ${from}, ignoring ICE candidate`
       );
-      if (!queuedRemoteCandidatesRef.current[from]) {
-        queuedRemoteCandidatesRef.current[from] = [];
-      }
-      queuedRemoteCandidatesRef.current[from].push(candidate);
       return;
     }
 
     try {
-      await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      console.log(`Added ICE candidate from ${from}`);
+      if (pc.remoteDescription) {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        console.log(`Added ICE candidate from ${from}`);
+      } else {
+        console.log(
+          `Queuing ICE candidate from ${from} (no remote description yet)`
+        );
+        if (!pendingCandidatesRef.current[from]) {
+          pendingCandidatesRef.current[from] = [];
+        }
+        pendingCandidatesRef.current[from].push(candidate);
+      }
     } catch (err) {
       console.error(`Error adding ICE candidate from ${from}:`, err);
     }
   };
 
-  // -----------------------------
-  // Speech -> Translate
-  // -----------------------------
+  const handleJoined = (userNames) => {
+    console.log("Users in channel:", userNames);
+    setParticipants(userNames);
+
+    if (userNames.length > 1 && !isCallStarted) {
+      setIsCallStarted(true);
+      toast.success("Call started successfully!");
+    }
+
+    // Set up peer connections for new users
+    // The user with lexicographically smaller userName creates the offer
+    userNames.forEach((user) => {
+      if (user.userName === userName) return;
+
+      const shouldCreateOffer = userName < user.userName;
+      console.log(
+        `Should ${userName} create offer for ${user.userName}? ${shouldCreateOffer}`
+      );
+
+      if (!peerConnectionsRef.current[user.userName]) {
+        // Small delay to ensure everything is ready
+        setTimeout(() => {
+          setupPeerConnection(user.userName, shouldCreateOffer);
+        }, 100);
+      }
+    });
+
+    // Clean up connections for users who left
+    Object.keys(peerConnectionsRef.current).forEach((pName) => {
+      if (!userNames.find((u) => u.userName === pName)) {
+        console.log(`Cleaning up connection for ${pName}`);
+        try {
+          peerConnectionsRef.current[pName].close();
+        } catch (e) {}
+        delete peerConnectionsRef.current[pName];
+        delete pendingCandidatesRef.current[pName];
+        delete isInitiatorRef.current[pName];
+
+        setRemoteStreams((prev) => {
+          const updated = { ...prev };
+          delete updated[pName];
+          return updated;
+        });
+      }
+    });
+  };
+
+  // Speech recognition and translation functions
   const handleSpeechResult = async (event) => {
     const current = event.resultIndex;
     const transcript = event.results[current][0].transcript.trim();
@@ -672,7 +710,6 @@ export default function VideoCall() {
   const speakTranslation = (text, targetLang) => {
     if (synthRef.current && text) {
       synthRef.current.cancel();
-
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = targetLang;
       utterance.volume = translationVolume;
@@ -685,6 +722,41 @@ export default function VideoCall() {
       }
 
       synthRef.current.speak(utterance);
+    }
+  };
+
+  const handleLanguageChanged = (data) => {
+    const { userName: changedUser, newLanguage, userList } = data;
+    setParticipants(userList);
+    toast.info(
+      `${changedUser} switched to ${languages[newLanguage]?.split("(")[0]}`
+    );
+  };
+
+  const handleChatMessage = (messageData) => {
+    setMessages((prev) => [...prev, messageData]);
+  };
+
+  // UI control functions
+  const toggleVideo = () => {
+    if (localStreamRef.current) {
+      const videoTrack = localStreamRef.current.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !isVideoEnabled;
+        setIsVideoEnabled(!isVideoEnabled);
+        toast.success(`Camera ${!isVideoEnabled ? "enabled" : "disabled"}`);
+      }
+    }
+  };
+
+  const toggleAudio = () => {
+    if (localStreamRef.current) {
+      const audioTrack = localStreamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !isAudioEnabled;
+        setIsAudioEnabled(!isAudioEnabled);
+        toast.success(`Microphone ${!isAudioEnabled ? "enabled" : "disabled"}`);
+      }
     }
   };
 
@@ -727,75 +799,6 @@ export default function VideoCall() {
     );
   };
 
-  const handleJoined = (userNames) => {
-    console.log("Users in channel:", userNames);
-    setParticipants(userNames);
-
-    if (userNames.length > 1 && !isCallStarted) {
-      setIsCallStarted(true);
-      toast.success("Call started successfully!");
-    }
-
-    // Set up peer connections for new users
-    userNames.forEach((user) => {
-      if (user.userName === userName) return;
-      if (!peerConnectionsRef.current[user.userName]) {
-        // Delay to ensure local stream is ready
-        setTimeout(() => {
-          setupPeerConnection(user.userName, true);
-        }, 500);
-      }
-    });
-
-    // Clean up connections for users who left
-    Object.keys(peerConnectionsRef.current).forEach((pName) => {
-      if (!userNames.find((u) => u.userName === pName)) {
-        try {
-          peerConnectionsRef.current[pName].close();
-        } catch (e) {}
-        delete peerConnectionsRef.current[pName];
-        setRemoteStreams((prev) => {
-          const updated = { ...prev };
-          delete updated[pName];
-          return updated;
-        });
-      }
-    });
-  };
-
-  const handleLanguageChanged = (data) => {
-    const { userName: changedUser, newLanguage, userList } = data;
-    setParticipants(userList);
-    toast.info(
-      `${changedUser} switched to ${languages[newLanguage]?.split("(")[0]}`
-    );
-  };
-
-  // -----------------------------
-  // UI control functions
-  // -----------------------------
-  const toggleVideo = () => {
-    if (localStreamRef.current) {
-      const videoTrack = localStreamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !isVideoEnabled;
-        setIsVideoEnabled(!isVideoEnabled);
-        toast.success(`Camera ${!isVideoEnabled ? "enabled" : "disabled"}`);
-      }
-    }
-  };
-
-  const toggleAudio = () => {
-    if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !isAudioEnabled;
-        setIsAudioEnabled(!isAudioEnabled);
-        toast.success(`Microphone ${!isAudioEnabled ? "enabled" : "disabled"}`);
-      }
-    }
-  };
-
   const endCall = () => {
     if (window.confirm("Are you sure you want to end the call?")) {
       cleanup();
@@ -826,10 +829,6 @@ export default function VideoCall() {
     }
   };
 
-  const handleChatMessage = (messageData) => {
-    setMessages((prev) => [...prev, messageData]);
-  };
-
   const handleVideoClick = async (videoRef) => {
     if (videoRef.current && videoRef.current.paused) {
       try {
@@ -842,20 +841,9 @@ export default function VideoCall() {
     }
   };
 
-  // LanguageSelector & UI components unchanged — omitted here to keep snippet shorter.
-  // (In the full file below I preserved your original UI code exactly, only wiring changes above.)
-
-  // --- RENDER (kept identical UI as original, but uses remoteStreams state updated above) ---
-  // For brevity in this snippet I will return the same UI you had, which is long.
-  // When you paste this file replace the UI return with your existing UI block (or use the below full version).
-
   return (
-    // --- Insert your UI JSX block here exactly as before ---
     <div className="h-screen bg-gray-900 flex flex-col">
-      {/* ======= HEADER & CONTROLS & MAIN UI: use the same JSX from your original file ======= */}
-      {/* For readability I kept the full UI earlier in the original file; ensure you keep that JSX here. */}
-      {/* The important logic changes are above (iceServers fetching, candidate queuing, wss support). */}
-      {/* --- To avoid accidentally truncating UI, you can copy the UI portion from your original file unchanged. --- */}
+      {/* Header */}
       <div className="bg-gray-800 px-6 py-4 flex justify-between items-center">
         <div>
           <h1 className="text-white text-xl font-semibold">
@@ -900,7 +888,6 @@ export default function VideoCall() {
 
               {showLanguageGroups && (
                 <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border w-80 max-h-96 overflow-y-auto z-50">
-                  {/* Keep the language selector UI you had originally here */}
                   <div className="p-3 border-b">
                     <h4 className="font-semibold text-gray-800 mb-2">
                       🔥 Popular in India
@@ -1006,144 +993,114 @@ export default function VideoCall() {
 
       <div className="flex-1 flex">
         <div className="flex-1 relative">
-          {participants.length > 1 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 h-full">
-              {/* Local Video */}
-              <div className="relative bg-gray-800 rounded-lg overflow-hidden">
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover cursor-pointer"
-                  onClick={() => handleVideoClick(localVideoRef)}
-                  onLoadedMetadata={() => {
-                    console.log("Local video metadata loaded");
-                    setLocalVideoReady(true);
-                    if (localVideoRef.current) {
-                      localVideoRef.current.play().catch(console.error);
-                    }
-                  }}
-                  onError={(e) => {
-                    console.error("Local video error:", e);
-                    toast.error("Local video error");
-                  }}
-                />
+          {/* Video Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 h-full">
+            {/* Local Video - Always show */}
+            <div className="relative bg-gray-800 rounded-lg overflow-hidden">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                muted
+                playsInline
+                className="w-full h-full object-cover cursor-pointer"
+                onClick={() => handleVideoClick(localVideoRef)}
+              />
 
-                {!localVideoReady && localStreamRef.current && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-700">
-                    <div className="text-white text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-                      <p className="text-sm">Starting camera...</p>
-                    </div>
+              {!localVideoReady && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-700">
+                  <div className="text-white text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                    <p className="text-sm">Starting camera...</p>
                   </div>
-                )}
-
-                {!localStreamRef.current && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-700">
-                    <div className="text-white text-center">
-                      <svg
-                        className="w-16 h-16 mx-auto mb-2 text-gray-400"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      <p className="text-sm">Camera not available</p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-sm">
-                  You ({userName})
                 </div>
-                <div className="absolute top-4 left-4 bg-blue-600 text-white px-2 py-1 rounded text-xs font-semibold">
-                  🗣️ {languages[selectedLanguage]?.split("(")[0]}
-                </div>
+              )}
 
-                <div className="absolute top-4 right-4 flex flex-col space-y-1">
-                  {!isVideoEnabled && (
-                    <div className="bg-red-600 text-white px-2 py-1 rounded text-xs">
-                      📹 बंद/Off
-                    </div>
-                  )}
-                  {!isAudioEnabled && (
-                    <div className="bg-red-600 text-white px-2 py-1 rounded text-xs">
-                      🔇 मूक/Mute
-                    </div>
-                  )}
-                  {isListening && (
-                    <div className="bg-green-600 text-white px-2 py-1 rounded text-xs animate-pulse">
-                      🎤 सुन रहा है/Listening
-                    </div>
-                  )}
-                </div>
+              <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-sm">
+                You ({userName})
+              </div>
+              <div className="absolute top-4 left-4 bg-blue-600 text-white px-2 py-1 rounded text-xs font-semibold">
+                🗣️ {languages[selectedLanguage]?.split("(")[0]}
               </div>
 
-              {/* Remote Videos */}
-              {Object.entries(remoteStreams).map(([userId, stream]) => {
-                const userLang =
-                  participants.find((p) => p.userName === userId)?.language ||
-                  "en";
-                return (
-                  <div
-                    key={userId}
-                    className="relative bg-gray-800 rounded-lg overflow-hidden"
-                  >
-                    <video
-                      autoPlay
-                      playsInline
-                      className="w-full h-full object-cover"
-                      ref={(video) => {
-                        if (video && stream) {
-                          video.srcObject = stream;
-                          // set audio volume via audio element on remote streams if needed:
-                          try {
-                            // For volume control, we recommend attaching an <audio> element and setting .volume.
-                            video.play().catch(console.error);
-                          } catch (e) {
-                            console.warn("Error on remote video play:", e);
-                          }
-                        }
-                      }}
-                      onError={(e) => {
-                        console.error(`Remote video error for ${userId}:`, e);
-                      }}
-                    />
-                    <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-sm">
-                      {userId}
-                    </div>
-                    <div className="absolute top-4 left-4 bg-purple-600 text-white px-2 py-1 rounded text-xs font-semibold">
-                      🗣️ {languages[userLang]?.split("(")[0] || "Unknown"}
-                    </div>
-                    {selectedLanguage !== userLang && (
-                      <div className="absolute top-4 right-4">
-                        <div className="bg-green-600 text-white px-2 py-1 rounded text-xs">
-                          🔄 अनुवाद/Translate
-                        </div>
-                      </div>
-                    )}
+              <div className="absolute top-4 right-4 flex flex-col space-y-1">
+                {!isVideoEnabled && (
+                  <div className="bg-red-600 text-white px-2 py-1 rounded text-xs">
+                    📹 बंद/Off
                   </div>
-                );
-              })}
+                )}
+                {!isAudioEnabled && (
+                  <div className="bg-red-600 text-white px-2 py-1 rounded text-xs">
+                    🔇 मूक/Mute
+                  </div>
+                )}
+                {isListening && (
+                  <div className="bg-green-600 text-white px-2 py-1 rounded text-xs animate-pulse">
+                    🎤 सुन रहा है/Listening
+                  </div>
+                )}
+              </div>
             </div>
-          ) : (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">
-                अन्य प्रतिभागियों का इंतजार / Waiting for other participants...
-              </p>
-              <p className="text-gray-500 text-sm mt-2">
-                कंसल्टेशन लिंक साझा करें / Share the consultation link
-              </p>
-            </div>
-          )}
 
-          {/* Controls (kept as in original, wired to the updated functions above) */}
+            {/* Remote Videos */}
+            {Object.entries(remoteStreams).map(([userId, stream]) => {
+              const userLang =
+                participants.find((p) => p.userName === userId)?.language ||
+                "en";
+              return (
+                <div
+                  key={userId}
+                  className="relative bg-gray-800 rounded-lg overflow-hidden"
+                >
+                  <video
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover"
+                    ref={(video) => {
+                      if (video && stream) {
+                        video.srcObject = stream;
+                        video.play().catch(console.error);
+                      }
+                    }}
+                    onError={(e) => {
+                      console.error(`Remote video error for ${userId}:`, e);
+                    }}
+                  />
+                  <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-sm">
+                    {userId}
+                  </div>
+                  <div className="absolute top-4 left-4 bg-purple-600 text-white px-2 py-1 rounded text-xs font-semibold">
+                    🗣️ {languages[userLang]?.split("(")[0] || "Unknown"}
+                  </div>
+                  {selectedLanguage !== userLang && (
+                    <div className="absolute top-4 right-4">
+                      <div className="bg-green-600 text-white px-2 py-1 rounded text-xs">
+                        🔄 अनुवाद/Translate
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Waiting message when no remote users */}
+            {Object.keys(remoteStreams).length === 0 &&
+              participants.length === 1 && (
+                <div className="relative bg-gray-800 rounded-lg overflow-hidden flex items-center justify-center">
+                  <div className="text-center text-white">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-300">
+                      अन्य प्रतिभागियों का इंतजार / Waiting for other
+                      participants...
+                    </p>
+                    <p className="text-gray-500 text-sm mt-2">
+                      कंसल्टेशन लिंक साझा करें / Share the consultation link
+                    </p>
+                  </div>
+                </div>
+              )}
+          </div>
+
+          {/* Controls */}
           <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
             <div className="flex items-center space-x-3 bg-black bg-opacity-75 rounded-full px-6 py-3">
               <button
@@ -1339,10 +1296,10 @@ export default function VideoCall() {
             </div>
           </div>
 
+          {/* Translation Settings Modal */}
           {showTranslationSettings && (
             <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-white rounded-lg p-4 shadow-lg w-80 z-40">
               <h3 className="font-semibold mb-3">🔧 Translation Settings</h3>
-
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-sm">Enable Translation</label>
@@ -1353,7 +1310,6 @@ export default function VideoCall() {
                     className="rounded"
                   />
                 </div>
-
                 <div>
                   <label className="text-sm block mb-1">
                     Translation Voice Volume
@@ -1373,7 +1329,6 @@ export default function VideoCall() {
                     {Math.round(translationVolume * 100)}%
                   </span>
                 </div>
-
                 <div>
                   <label className="text-sm block mb-1">
                     Original Audio Volume
@@ -1386,9 +1341,6 @@ export default function VideoCall() {
                     value={originalVolume}
                     onChange={(e) => {
                       setOriginalVolume(Number(e.target.value));
-                      // Note: setting track.enabled toggles mute/unmute. For fine-grained volume control,
-                      // attach the remote stream to an <audio> element and set element.volume.
-                      // Here we disable/enable audio tracks as a coarse approach:
                       Object.values(remoteStreams).forEach((stream) => {
                         const audioTracks = stream.getAudioTracks();
                         audioTracks.forEach((track) => {
@@ -1403,7 +1355,6 @@ export default function VideoCall() {
                   </span>
                 </div>
               </div>
-
               <button
                 onClick={() => setShowTranslationSettings(false)}
                 className="mt-3 w-full bg-blue-600 text-white py-2 rounded text-sm hover:bg-blue-700"
@@ -1414,6 +1365,7 @@ export default function VideoCall() {
           )}
         </div>
 
+        {/* Chat Panel */}
         {showChat && (
           <div className="w-80 bg-white border-l flex flex-col">
             <div className="p-4 border-b bg-gray-50">
