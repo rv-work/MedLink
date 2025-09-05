@@ -1,3 +1,8 @@
+// # FIXED Patient Consultation Component
+
+// Replace your `PatientConsultation.jsx` with this improved version:
+
+// ```javascript
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
@@ -8,12 +13,13 @@ const PatientConsultation = () => {
   const navigate = useNavigate();
   const [consultation, setConsultation] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [callStatus, setCallStatus] = useState("connecting"); // connecting, connected, ended
+  const [callStatus, setCallStatus] = useState("connecting");
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [user, setUser] = useState(null);
+  const [connectionAttempts, setConnectionAttempts] = useState(0);
 
   // Refs
   const localVideoRef = useRef(null);
@@ -21,21 +27,25 @@ const PatientConsultation = () => {
   const localStreamRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const socketRef = useRef(null);
+  const isInitialized = useRef(false);
 
-  // WebRTC Configuration
+  // WebRTC Configuration with multiple STUN servers
   const pcConfig = {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
       { urls: "stun:stun1.l.google.com:19302" },
+      { urls: "stun:stun2.l.google.com:19302" },
+      { urls: "stun:stun.services.mozilla.com" },
     ],
+    iceCandidatePoolSize: 10,
   };
 
   useEffect(() => {
-    // Get user info from localStorage or context
     const userData = JSON.parse(localStorage.getItem("user") || "{}");
+    console.log("User data loaded:", userData);
     setUser(userData);
-
     initializeConsultation();
+
     return () => {
       cleanup();
     };
@@ -43,23 +53,26 @@ const PatientConsultation = () => {
 
   const initializeConsultation = async () => {
     try {
-      // Fetch consultation details
+      console.log("🏥 Initializing consultation...");
       const response = await fetch(
         `https://medlink-bh5c.onrender.com/api/consultation/${consultationId}`,
-        {
-          credentials: "include",
-        }
+        { credentials: "include" }
       );
-
       const data = await response.json();
+
       if (data.success) {
+        console.log("✅ Consultation data loaded:", data.consultation);
         setConsultation(data.consultation);
+
         if (data.consultation.status === "accepted") {
           await initializeVideoCall();
+        } else {
+          setCallStatus("waiting");
+          console.log("⏳ Waiting for doctor to accept consultation");
         }
       }
     } catch (error) {
-      console.error("Error initializing consultation:", error);
+      console.error("❌ Error initializing consultation:", error);
       toast.error("Failed to load consultation");
     } finally {
       setLoading(false);
@@ -67,98 +80,305 @@ const PatientConsultation = () => {
   };
 
   const initializeVideoCall = async () => {
-    try {
-      // Initialize socket connection
-      socketRef.current = io("https://medlink-bh5c.onrender.com");
+    if (isInitialized.current) {
+      console.log("⚠️ Video call already initialized");
+      return;
+    }
 
-      // Get user media
+    isInitialized.current = true;
+    console.log("🚀 Starting video call initialization...");
+
+    try {
+      // Step 1: Get user media first
+      await getUserMedia();
+
+      // Step 2: Initialize Socket.IO
+      await initializeSocket();
+
+      // Step 3: Set up peer connection
+      await setupPeerConnection();
+
+      console.log("✅ Video call initialization completed");
+    } catch (error) {
+      console.error("❌ Error initializing video call:", error);
+      toast.error("Failed to initialize video call: " + error.message);
+      setCallStatus("failed");
+      isInitialized.current = false;
+    }
+  };
+
+  const getUserMedia = async () => {
+    try {
+      console.log("🎥 Getting user media...");
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: isVideoEnabled,
-        audio: isAudioEnabled,
+        video: {
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+          frameRate: { ideal: 30, max: 60 },
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
       });
 
+      console.log("✅ User media obtained:", stream);
       localStreamRef.current = stream;
+
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
 
-      // Initialize peer connection
-      peerConnectionRef.current = new RTCPeerConnection(pcConfig);
+      return stream;
+    } catch (error) {
+      console.error("❌ Error getting user media:", error);
+      throw new Error(`Camera/Microphone access denied: ${error.message}`);
+    }
+  };
 
-      // Add local stream to peer connection
-      stream.getTracks().forEach((track) => {
-        peerConnectionRef.current.addTrack(track, stream);
+  const initializeSocket = () => {
+    return new Promise((resolve, reject) => {
+      console.log("🔌 Connecting to Socket.IO server...");
+
+      socketRef.current = io("https://medlink-bh5c.onrender.com", {
+        transports: ["websocket", "polling"],
+        timeout: 20000,
+        forceNew: true,
       });
 
+      socketRef.current.on("connect", () => {
+        console.log("✅ Socket.IO connected:", socketRef.current.id);
+        setupSocketEvents();
+        resolve();
+      });
+
+      socketRef.current.on("connect_error", (error) => {
+        console.error("❌ Socket connection error:", error);
+        reject(error);
+      });
+
+      // Set timeout for connection
+      setTimeout(() => {
+        if (!socketRef.current.connected) {
+          reject(new Error("Socket connection timeout"));
+        }
+      }, 10000);
+    });
+  };
+
+  const setupSocketEvents = () => {
+    const socket = socketRef.current;
+
+    // Handle consultation ready signal
+    socket.on("consultation-ready", ({ participants, patient, doctor }) => {
+      console.log("🎯 Consultation ready:", { participants, patient, doctor });
+      setCallStatus("negotiating");
+    });
+
+    // Handle start call instruction
+    socket.on("start-call", ({ targetUserId, role }) => {
+      console.log(`📞 Start call as ${role} with target:`, targetUserId);
+      if (role === "receiver") {
+        setCallStatus("waiting_for_offer");
+        console.log("⏳ Waiting for offer from doctor...");
+      }
+    });
+
+    // Handle WebRTC offer
+    socket.on("webrtc-offer", async ({ offer, from, fromType }) => {
+      console.log(`📨 Received offer from ${fromType}:`, from);
+
+      if (peerConnectionRef.current && offer) {
+        try {
+          await peerConnectionRef.current.setRemoteDescription(offer);
+          console.log("✅ Remote description set");
+
+          const answer = await peerConnectionRef.current.createAnswer();
+          await peerConnectionRef.current.setLocalDescription(answer);
+          console.log("✅ Answer created and local description set");
+
+          socket.emit("webrtc-answer", {
+            consultationId,
+            answer,
+            targetUserId: from,
+          });
+          console.log("📤 Answer sent to doctor");
+
+          setCallStatus("connecting");
+        } catch (error) {
+          console.error("❌ Error handling offer:", error);
+          toast.error("Failed to process video call offer");
+        }
+      }
+    });
+
+    // Handle ICE candidates
+    socket.on("webrtc-ice-candidate", async ({ candidate, from }) => {
+      console.log(`🧊 Received ICE candidate from ${from}`);
+
+      if (peerConnectionRef.current && candidate) {
+        try {
+          await peerConnectionRef.current.addIceCandidate(candidate);
+          console.log("✅ ICE candidate added");
+        } catch (error) {
+          console.error("❌ Error adding ICE candidate:", error);
+        }
+      }
+    });
+
+    // Handle consultation messages
+    socket.on("consultation-message", ({ message, sender, timestamp }) => {
+      console.log("💬 New message from:", sender);
+      setMessages((prev) => [
+        ...prev,
+        { message, sender, timestamp, isOwn: false },
+      ]);
+    });
+
+    // Handle consultation ended
+    socket.on("consultation-ended", () => {
+      console.log("🔚 Consultation ended by doctor");
+      setCallStatus("ended");
+      toast.info("Doctor has ended the consultation");
+    });
+
+    // Handle user left
+    socket.on("user-left", ({ userId, userType, reason }) => {
+      console.log(`👋 ${userType} ${userId} left:`, reason);
+      setCallStatus("ended");
+      toast.info("Doctor has left the consultation");
+    });
+
+    // Handle WebRTC errors
+    socket.on("webrtc-error", ({ message, targetUserId }) => {
+      console.error("❌ WebRTC error:", message);
+      toast.error(`Connection error: ${message}`);
+    });
+  };
+
+  const setupPeerConnection = async () => {
+    try {
+      console.log("🔗 Setting up peer connection...");
+
+      peerConnectionRef.current = new RTCPeerConnection(pcConfig);
+      const pc = peerConnectionRef.current;
+
+      // Add local stream tracks
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => {
+          console.log("➕ Adding track to peer connection:", track.kind);
+          pc.addTrack(track, localStreamRef.current);
+        });
+      }
+
       // Handle remote stream
-      peerConnectionRef.current.ontrack = (event) => {
+      pc.ontrack = (event) => {
+        console.log("📺 Remote track received:", event.track.kind);
+
         if (remoteVideoRef.current && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
           setCallStatus("connected");
+          console.log("✅ Remote video stream connected");
         }
       };
 
       // Handle ICE candidates
-      peerConnectionRef.current.onicecandidate = (event) => {
+      pc.onicecandidate = (event) => {
         if (event.candidate && socketRef.current) {
+          console.log("🧊 Sending ICE candidate");
           socketRef.current.emit("webrtc-ice-candidate", {
             consultationId,
             candidate: event.candidate,
-            targetUserId: consultation.doctor._id,
+            targetUserId: consultation?.doctor?._id,
           });
         }
       };
 
-      // Socket event listeners
-      socketRef.current.on("webrtc-offer", async ({ offer, from }) => {
-        await peerConnectionRef.current.setRemoteDescription(offer);
-        const answer = await peerConnectionRef.current.createAnswer();
-        await peerConnectionRef.current.setLocalDescription(answer);
+      // Handle connection state changes
+      pc.onconnectionstatechange = () => {
+        const state = pc.connectionState;
+        console.log(`🔄 Connection state changed: ${state}`);
 
-        socketRef.current.emit("webrtc-answer", {
-          consultationId,
-          answer,
-          targetUserId: from,
-        });
-      });
-
-      socketRef.current.on("webrtc-answer", async ({ answer }) => {
-        await peerConnectionRef.current.setRemoteDescription(answer);
-      });
-
-      socketRef.current.on("webrtc-ice-candidate", async ({ candidate }) => {
-        await peerConnectionRef.current.addIceCandidate(candidate);
-      });
-
-      socketRef.current.on(
-        "consultation-message",
-        ({ message, sender, timestamp }) => {
-          setMessages((prev) => [
-            ...prev,
-            { message, sender, timestamp, isOwn: false },
-          ]);
+        if (state === "connected") {
+          setCallStatus("connected");
+          setConnectionAttempts(0);
+        } else if (state === "failed") {
+          console.error("❌ WebRTC connection failed");
+          setCallStatus("failed");
+          handleConnectionFailure();
+        } else if (state === "disconnected") {
+          setCallStatus("connecting");
+        } else if (state === "closed") {
+          setCallStatus("ended");
         }
-      );
 
-      socketRef.current.on("consultation-ended", () => {
-        setCallStatus("ended");
-        toast.info("Doctor has ended the consultation");
-      });
+        // Notify server about connection state
+        if (socketRef.current) {
+          socketRef.current.emit("webrtc-connection-state", {
+            consultationId,
+            state,
+            targetUserId: consultation?.doctor?._id,
+          });
+        }
+      };
 
-      socketRef.current.on("user-left", () => {
-        setCallStatus("ended");
-        toast.info("Doctor has left the consultation");
-      });
+      // Handle ICE connection state changes
+      pc.oniceconnectionstatechange = () => {
+        console.log(`🧊 ICE connection state: ${pc.iceConnectionState}`);
 
-      // Join consultation room
+        if (pc.iceConnectionState === "failed") {
+          console.log("🔄 ICE connection failed, attempting restart...");
+          pc.restartIce();
+        }
+      };
+
+      // Now join the consultation
+      const userId = user?.id || user?._id || user?.userId;
+      console.log("👤 Joining consultation as patient:", userId);
+
       socketRef.current.emit("join-consultation", {
         consultationId,
-        userId: user?.id || user?._id,
+        userId: userId.toString(),
         userType: "patient",
       });
     } catch (error) {
-      console.error("Error initializing video call:", error);
-      toast.error("Failed to initialize video call");
+      console.error("❌ Error setting up peer connection:", error);
+      throw error;
+    }
+  };
+
+  const handleConnectionFailure = () => {
+    setConnectionAttempts((prev) => prev + 1);
+
+    if (connectionAttempts < 3) {
+      console.log(
+        `🔄 Retrying connection (attempt ${connectionAttempts + 1}/3)...`
+      );
+      setTimeout(() => {
+        restartConnection();
+      }, 2000);
+    } else {
+      console.error("❌ Max connection attempts reached");
+      toast.error(
+        "Unable to establish video connection. Please refresh the page."
+      );
+    }
+  };
+
+  const restartConnection = async () => {
+    try {
+      console.log("🔄 Restarting connection...");
+
+      // Close existing peer connection
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+      }
+
+      // Set up new peer connection
+      await setupPeerConnection();
+    } catch (error) {
+      console.error("❌ Error restarting connection:", error);
     }
   };
 
@@ -168,6 +388,7 @@ const PatientConsultation = () => {
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setIsVideoEnabled(videoTrack.enabled);
+        console.log(`📹 Video ${videoTrack.enabled ? "enabled" : "disabled"}`);
       }
     }
   };
@@ -178,6 +399,7 @@ const PatientConsultation = () => {
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setIsAudioEnabled(audioTrack.enabled);
+        console.log(`🎤 Audio ${audioTrack.enabled ? "enabled" : "disabled"}`);
       }
     }
   };
@@ -197,6 +419,7 @@ const PatientConsultation = () => {
 
       setMessages((prev) => [...prev, { ...messageData, isOwn: true }]);
       setNewMessage("");
+      console.log("💬 Message sent:", messageData.message);
     }
   };
 
@@ -206,14 +429,13 @@ const PatientConsultation = () => {
     }
 
     try {
-      // Update consultation status
+      console.log("🔚 Ending consultation...");
+
       const response = await fetch(
         `https://medlink-bh5c.onrender.com/api/consultation/${consultationId}/status`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ status: "completed" }),
         }
@@ -227,29 +449,59 @@ const PatientConsultation = () => {
         toast.success("Consultation completed successfully");
       }
     } catch (error) {
-      console.error("Error ending consultation:", error);
+      console.error("❌ Error ending consultation:", error);
       toast.error("Failed to end consultation");
     }
   };
 
   const cleanup = () => {
+    console.log("🧹 Cleaning up resources...");
+
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current.getTracks().forEach((track) => {
+        track.stop();
+        console.log(`🛑 Stopped ${track.kind} track`);
+      });
     }
+
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
+      console.log("🔗 Closed peer connection");
     }
+
     if (socketRef.current) {
+      socketRef.current.emit("leave-consultation", { consultationId });
       socketRef.current.disconnect();
+      console.log("🔌 Disconnected socket");
+    }
+
+    isInitialized.current = false;
+  };
+
+  // Status display helpers
+  const getStatusMessage = () => {
+    switch (callStatus) {
+      case "connecting":
+        return "Establishing connection...";
+      case "negotiating":
+        return "Setting up video call...";
+      case "waiting_for_offer":
+        return "Waiting for doctor to start video...";
+      case "failed":
+        return "Connection failed. Retrying...";
+      case "connected":
+        return "Connected";
+      default:
+        return "Please wait...";
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p>Loading consultation...</p>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading consultation...</p>
         </div>
       </div>
     );
@@ -257,18 +509,18 @@ const PatientConsultation = () => {
 
   if (callStatus === "ended") {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center text-white max-w-md">
-          <div className="text-6xl mb-6">✅</div>
-          <h2 className="text-3xl font-bold mb-4">Consultation Completed</h2>
-          <p className="text-gray-300 mb-8">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="bg-white p-8 rounded-lg shadow-md text-center">
+          <div className="text-green-600 text-6xl mb-4">✓</div>
+          <h2 className="text-2xl font-semibold mb-2">Consultation Complete</h2>
+          <p className="text-gray-600 mb-4">
             Thank you for using our consultation service.
           </p>
           <button
-            onClick={() => navigate("/dashboard")}
-            className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200"
+            onClick={() => navigate("/patient/consultations")}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
           >
-            Back to Dashboard
+            Back to Consultations
           </button>
         </div>
       </div>
@@ -276,234 +528,191 @@ const PatientConsultation = () => {
   }
 
   return (
-    <div className="h-screen bg-gray-900 flex flex-col">
-      {/* Header */}
-      <div className="bg-gray-800 text-white p-4 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <h1 className="text-xl font-semibold">Video Consultation</h1>
-          <div className="flex items-center space-x-2">
-            <div
-              className={`w-3 h-3 rounded-full ${
-                callStatus === "connected" ? "bg-green-500" : "bg-yellow-500"
-              }`}
-            ></div>
-            <span className="text-sm capitalize">{callStatus}</span>
-          </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-6">
+        {/* Debug Info (remove in production) */}
+        <div className="mb-4 p-3 bg-yellow-100 rounded-lg text-sm">
+          <strong>Debug:</strong> Status: {callStatus} | User ID:{" "}
+          {user?.id || user?._id || "not found"} | Attempts:{" "}
+          {connectionAttempts}/3
         </div>
-        <div className="text-right">
-          <p className="font-medium">
-            {consultation?.doctor?.name || "Doctor"}
-          </p>
-          <p className="text-sm text-gray-300">
-            {consultation?.consultationType}
-          </p>
-        </div>
-      </div>
 
-      {/* Video Container */}
-      <div className="flex-1 flex">
-        {/* Main Video Area */}
-        <div className="flex-1 relative bg-black">
-          {/* Remote Video (Doctor) */}
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className="w-full h-full object-cover"
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Video Section */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-lg shadow-sm p-4">
+              <div
+                className="relative bg-black rounded-lg overflow-hidden"
+                style={{ aspectRatio: "16/9" }}
+              >
+                {/* Remote Video */}
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
 
-          {/* Local Video (Patient) - Picture in Picture */}
-          <div className="absolute top-4 right-4 w-48 h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-white">
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
-            {!isVideoEnabled && (
-              <div className="absolute inset-0 bg-gray-600 flex items-center justify-center">
-                <div className="text-white text-center">
-                  <div className="w-12 h-12 bg-gray-500 rounded-full mx-auto mb-2 flex items-center justify-center">
-                    <span className="text-xl">👤</span>
-                  </div>
-                  <p className="text-sm">Camera Off</p>
+                {/* Local Video (Picture-in-Picture) */}
+                <div className="absolute top-4 right-4 w-32 h-24 bg-gray-800 rounded-lg overflow-hidden border-2 border-white">
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+                  {!isVideoEnabled && (
+                    <div className="absolute inset-0 bg-gray-600 flex items-center justify-center">
+                      <span className="text-white text-xs">Camera Off</span>
+                    </div>
+                  )}
                 </div>
+
+                {/* Connection Status Overlay */}
+                {callStatus !== "connected" && (
+                  <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
+                    <div className="text-center text-white">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                      <p className="text-lg">{getStatusMessage()}</p>
+                      <p className="text-sm text-gray-300 mt-1">
+                        {callStatus === "failed"
+                          ? `Retrying... (${connectionAttempts}/3)`
+                          : "Please wait while we connect you to the doctor"}
+                      </p>
+                      {callStatus === "failed" && (
+                        <button
+                          onClick={restartConnection}
+                          className="mt-3 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                          Retry Now
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* Video Controls */}
+              <div className="flex justify-center space-x-4 mt-4">
+                <button
+                  onClick={toggleAudio}
+                  className={`p-3 rounded-full transition-colors ${
+                    isAudioEnabled
+                      ? "bg-gray-200 hover:bg-gray-300"
+                      : "bg-red-500 text-white hover:bg-red-600"
+                  }`}
+                  title={isAudioEnabled ? "Mute" : "Unmute"}
+                >
+                  {isAudioEnabled ? "🎤" : "🔇"}
+                </button>
+
+                <button
+                  onClick={toggleVideo}
+                  className={`p-3 rounded-full transition-colors ${
+                    isVideoEnabled
+                      ? "bg-gray-200 hover:bg-gray-300"
+                      : "bg-red-500 text-white hover:bg-red-600"
+                  }`}
+                  title={isVideoEnabled ? "Turn off camera" : "Turn on camera"}
+                >
+                  {isVideoEnabled ? "📹" : "📷"}
+                </button>
+
+                <button
+                  onClick={endConsultation}
+                  className="bg-red-500 text-white px-6 py-3 rounded-full hover:bg-red-600 transition-colors"
+                >
+                  End Call
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Call Status Overlay */}
-          {callStatus === "connecting" && (
-            <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
-              <div className="text-center text-white">
-                <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <h3 className="text-xl font-semibold mb-2">
-                  Connecting to Doctor...
-                </h3>
-                <p className="text-gray-300">
-                  Please wait while we establish the connection
+          {/* Chat and Info Section */}
+          <div className="space-y-4">
+            {/* Doctor Info */}
+            <div className="bg-white rounded-lg shadow-sm p-4">
+              <h3 className="font-semibold mb-2">
+                {consultation?.doctor?.name || "Doctor"}
+              </h3>
+              <p className="text-sm text-gray-600">
+                {consultation?.consultationType}
+              </p>
+              <div className="mt-2 flex items-center space-x-2">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    callStatus === "connected"
+                      ? "bg-green-400"
+                      : callStatus === "connecting" ||
+                        callStatus === "negotiating"
+                      ? "bg-yellow-400"
+                      : "bg-gray-400"
+                  }`}
+                ></div>
+                <span className="text-xs text-gray-500">
+                  {callStatus === "connected" ? "Online" : "Connecting..."}
+                </span>
+              </div>
+            </div>
+
+            {/* Chat */}
+            <div className="bg-white rounded-lg shadow-sm p-4">
+              <h3 className="font-semibold mb-3">Chat</h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto mb-3">
+                {messages.length === 0 ? (
+                  <p className="text-gray-500 text-sm">
+                    Start a conversation with your doctor
+                  </p>
+                ) : (
+                  messages.map((msg, index) => (
+                    <div
+                      key={index}
+                      className={`p-2 rounded-lg text-sm ${
+                        msg.isOwn ? "bg-blue-100 ml-4" : "bg-gray-100 mr-4"
+                      }`}
+                    >
+                      <p>{msg.message}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {msg.sender} •{" "}
+                        {new Date(msg.timestamp).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+                  placeholder="Type a message..."
+                  className="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={sendMessage}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+
+            {/* Consultation Details */}
+            <div className="bg-white rounded-lg shadow-sm p-4">
+              <h3 className="font-semibold mb-2">Consultation Details</h3>
+              <div className="text-sm text-gray-600 space-y-1">
+                <p>
+                  <strong>Problem:</strong> {consultation?.problemTitle}
+                </p>
+                <p>
+                  <strong>Type:</strong> {consultation?.consultationType} •{" "}
+                  <strong>Priority:</strong> {consultation?.urgency}
                 </p>
               </div>
             </div>
-          )}
-
-          {/* No Remote Stream Placeholder */}
-          {callStatus === "connected" && !remoteVideoRef.current?.srcObject && (
-            <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
-              <div className="text-center text-white">
-                <div className="w-24 h-24 bg-gray-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <span className="text-4xl">👨‍⚕️</span>
-                </div>
-                <h3 className="text-xl font-semibold mb-2">
-                  Waiting for Doctor's Video
-                </h3>
-                <p className="text-gray-300">Doctor is joining the call...</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Chat Sidebar */}
-        <div className="w-80 bg-white border-l border-gray-300 flex flex-col">
-          {/* Chat Header */}
-          <div className="bg-gray-50 p-4 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-800">Consultation Chat</h3>
           </div>
-
-          {/* Messages */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-3">
-            {messages.length === 0 ? (
-              <div className="text-center text-gray-500 py-8">
-                <p>Start a conversation with your doctor</p>
-              </div>
-            ) : (
-              messages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`flex ${
-                    msg.isOwn ? "justify-end" : "justify-start"
-                  }`}
-                >
-                  <div
-                    className={`max-w-xs p-3 rounded-lg ${
-                      msg.isOwn
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    <p className="text-sm">{msg.message}</p>
-                    <p
-                      className={`text-xs mt-1 ${
-                        msg.isOwn ? "text-blue-100" : "text-gray-500"
-                      }`}
-                    >
-                      {msg.sender} •{" "}
-                      {new Date(msg.timestamp).toLocaleTimeString()}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Message Input */}
-          <div className="p-4 border-t border-gray-200">
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-                placeholder="Type a message..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <button
-                onClick={sendMessage}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200"
-              >
-                Send
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Controls */}
-      <div className="bg-gray-800 p-4">
-        <div className="flex items-center justify-center space-x-4">
-          {/* Audio Toggle */}
-          <button
-            onClick={toggleAudio}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition duration-200 ${
-              isAudioEnabled
-                ? "bg-gray-600 text-white hover:bg-gray-500"
-                : "bg-red-600 text-white hover:bg-red-500"
-            }`}
-          >
-            {isAudioEnabled ? (
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M9 4a1 1 0 011-1h.01a1 1 0 011 1v6a1 1 0 01-1 1H10a1 1 0 01-1-1V4zM7 8a1 1 0 00-2 0v2a5 5 0 1010 0V8a1 1 0 10-2 0v2a3 3 0 11-6 0V8z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            ) : (
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M16.707 3.293a1 1 0 010 1.414L15.414 6l1.293 1.293a1 1 0 01-1.414 1.414L14 7.414l-1.293 1.293a1 1 0 01-1.414-1.414L12.586 6l-1.293-1.293a1 1 0 011.414-1.414L14 4.586l1.293-1.293a1 1 0 011.414 0zM9 4a1 1 0 011-1h.01a1 1 0 011 1v6a1 1 0 01-1 1H10a1 1 0 01-1-1V4zM7 8a1 1 0 00-2 0v2a5 5 0 1010 0V8a1 1 0 10-2 0v2a3 3 0 11-6 0V8z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            )}
-          </button>
-
-          {/* Video Toggle */}
-          <button
-            onClick={toggleVideo}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition duration-200 ${
-              isVideoEnabled
-                ? "bg-gray-600 text-white hover:bg-gray-500"
-                : "bg-red-600 text-white hover:bg-red-500"
-            }`}
-          >
-            {isVideoEnabled ? (
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-              </svg>
-            ) : (
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            )}
-          </button>
-
-          {/* End Call */}
-          <button
-            onClick={endConsultation}
-            className="w-12 h-12 rounded-full bg-red-600 text-white hover:bg-red-700 transition duration-200 flex items-center justify-center"
-          >
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Consultation Info */}
-        <div className="mt-4 text-center text-gray-300 text-sm">
-          <p>
-            {consultation?.problemTitle} • {consultation?.consultationType}
-          </p>
         </div>
       </div>
     </div>
@@ -511,3 +720,32 @@ const PatientConsultation = () => {
 };
 
 export default PatientConsultation;
+// ```
+
+// ## Key Improvements in Patient Component:
+
+// ### 1. **Proper Initialization Flow**
+// - Sequential initialization: Media → Socket → WebRTC
+// - Protection against multiple initializations
+// - Better error handling at each step
+
+// ### 2. **Enhanced WebRTC Signaling**
+// - Waits for `consultation-ready` event
+// - Responds to `start-call` instructions
+// - Proper offer/answer flow handling
+
+// ### 3. **Connection Management**
+// - Connection state monitoring
+// - Automatic retry mechanism (up to 3 attempts)
+// - ICE restart on connection failure
+
+// ### 4. **Debugging Features**
+// - Extensive console logging
+// - Debug info panel (remove in production)
+// - Connection status indicators
+
+// ### 5. **Better User Experience**
+// - Clear status messages
+// - Visual connection indicators
+// - Manual retry option
+// - Improved error messages
