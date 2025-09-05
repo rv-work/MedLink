@@ -57,28 +57,46 @@ export default function SimpleVideoCall() {
       if (type === "offer_sdp_received") {
         const pc = peerConnectionsRef.current[body.from];
         if (!pc) return;
-        await pc.setRemoteDescription(new RTCSessionDescription(body.sdp));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
 
-        wsRef.current.send(
-          JSON.stringify({
-            type: "send_answer",
-            body: {
-              channelName,
-              userName,
-              from: userName,
-              to: body.from,
-              sdp: answer,
-            },
-          })
-        );
+        if (!pc.currentRemoteDescription) {
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(body.sdp));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+
+            wsRef.current.send(
+              JSON.stringify({
+                type: "send_answer",
+                body: {
+                  channelName,
+                  userName,
+                  from: userName,
+                  to: body.from,
+                  sdp: answer,
+                },
+              })
+            );
+          } catch (err) {
+            console.error("Error handling offer:", err);
+          }
+        } else {
+          console.log("Offer already applied, skipping duplicate.");
+        }
       }
 
       if (type === "answer_sdp_received") {
         const pc = peerConnectionsRef.current[body.from];
         if (!pc) return;
-        await pc.setRemoteDescription(new RTCSessionDescription(body.sdp));
+
+        if (!pc.currentRemoteDescription) {
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(body.sdp));
+          } catch (err) {
+            console.error("Error setting remote answer:", err);
+          }
+        } else {
+          console.log("Answer already applied, skipping duplicate.");
+        }
       }
 
       if (type === "ice_candidate_received") {
@@ -141,21 +159,25 @@ export default function SimpleVideoCall() {
 
     // If I'm initiator → create offer
     if (isInitiator) {
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
 
-      wsRef.current.send(
-        JSON.stringify({
-          type: "send_offer",
-          body: {
-            channelName,
-            userName,
-            from: userName,
-            to: remoteUserName,
-            sdp: offer,
-          },
-        })
-      );
+        wsRef.current.send(
+          JSON.stringify({
+            type: "send_offer",
+            body: {
+              channelName,
+              userName,
+              from: userName,
+              to: remoteUserName,
+              sdp: offer,
+            },
+          })
+        );
+      } catch (err) {
+        console.error("Error creating offer:", err);
+      }
     }
   };
 
