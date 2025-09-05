@@ -4,6 +4,7 @@ import AnimatedBackground from "../components/AddReportComponents/AnimatedBackgr
 import DatabaseStatus from "../components/AddReportComponents/DatabaseStatus";
 import ErrorAlert from "../components/AddReportComponents/ErrorAlert";
 import PatientInfoFields from "../components/AddReportComponents/PatientInfoFields";
+import DoctorLinkingFields from "../components/AddReportComponents/DoctorLinkingFields"; // New import
 import TextAreaFields from "../components/AddReportComponents/TextAreaFields";
 import FileUpload from "../components/AddReportComponents/FileUpload";
 import MedicineManagement from "../components/AddReportComponents/MedicineManagement";
@@ -37,6 +38,7 @@ const Web2AddReport = () => {
     handleSaveMedicine,
     handleDeleteMedicine,
     handleSubmitWeb2,
+    setIsIdAvailable,
   } = useReportForm();
 
   if (success) return <SuccessModal type="web2" />;
@@ -57,6 +59,14 @@ const Web2AddReport = () => {
               formData={formData}
               handleChange={handleChange}
             />
+
+            {/* New Doctor Linking Fields */}
+            <DoctorLinkingFields
+              formData={formData}
+              handleChange={handleChange}
+              setIsIdAvailable={setIsIdAvailable}
+            />
+
             <AdditionalFields formData={formData} handleChange={handleChange} />
             <TextAreaFields formData={formData} handleChange={handleChange} />
 

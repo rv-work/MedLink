@@ -249,3 +249,45 @@ export const PostSummaryMessage = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
+
+
+export const CheckDoctor = async (req, res) => {
+  try {
+    const { doctorMedlinkId } = req.body;
+
+    if (!doctorMedlinkId) {
+      return res.status(400).json({
+        success: false,
+        message: "Doctor ID is required"
+      });
+    }
+
+    const doctor = await Doctor.findOne({ doctorMedlinkId })
+      .populate('user', 'name email');
+
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: "No doctor found with this ID"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Doctor found",
+      data: {
+        doctorId: doctor.doctorMedlinkId,
+        doctorName: doctor.user.name,
+        specialization: doctor.specialization,
+        hospital: doctor.hospital
+      }
+    });
+
+  } catch (error) {
+    console.error("Error checking doctor:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while checking doctor"
+    });
+  }
+};

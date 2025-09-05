@@ -30,6 +30,7 @@ const useReportForm = () => {
       height: "175",
       bmi: "22.9",
     },
+    doctorMedlinkId: "",
     medicines: [
       {
         name: "Pacimol-Active Tab",
@@ -92,6 +93,7 @@ const useReportForm = () => {
   const [dragActive, setDragActive] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState(null);
   const [showAddMedicine, setShowAddMedicine] = useState(false);
+  const [isIdAvailable, setIsIdAvailable] = useState(false);
   const [newMedicine, setNewMedicine] = useState({
     name: "",
     dose: "",
@@ -112,6 +114,7 @@ const useReportForm = () => {
       reportType: "General Checkup",
       department: "",
       ageAtReport: "",
+      doctorMedlinkId: "",
       vitals: {
         bloodPressure: "",
         heartRate: "",
@@ -127,9 +130,8 @@ const useReportForm = () => {
     });
     setError("");
   };
-
   const handleChange = (e) => {
-    const { name, value, files } = e.target;
+    const { name, value, files, checked } = e.target;
 
     if (name === "reportFiles") {
       const newFiles = Array.from(files).filter(
@@ -147,6 +149,13 @@ const useReportForm = () => {
     } else if (name.startsWith("vitals.")) {
       const vital = name.split(".")[1];
       setFormData((p) => ({ ...p, vitals: { ...p.vitals, [vital]: value } }));
+    } else if (name === "linkDoctor") {
+      setFormData((p) => ({
+        ...p,
+        linkDoctor: checked,
+        doctorMedlinkId: "",
+        linkedDoctorInfo: null,
+      }));
     } else {
       setFormData((p) => ({ ...p, [name]: value }));
     }
@@ -273,6 +282,7 @@ const useReportForm = () => {
         return setError("Select at least one report file.");
 
       const uploadData = new FormData();
+      uploadData.append("isIdAvailable", isIdAvailable);
       for (const key in formData) {
         if (key === "vitals" || key === "medicines")
           uploadData.append(key, JSON.stringify(formData[key]));
@@ -282,6 +292,8 @@ const useReportForm = () => {
           );
         else if (key === "medicineFile" && formData.medicineFile)
           uploadData.append("medicineFile", formData.medicineFile);
+        else if (key === "linkedDoctorInfo")
+          uploadData.append(key, JSON.stringify(formData[key]));
         else uploadData.append(key, formData[key]);
       }
       uploadData.append(
@@ -333,6 +345,7 @@ const useReportForm = () => {
         medicines: formData.medicines,
         dateOfReport: new Date(formData.dateOfReport),
         address,
+        isIdAvailable,
         reportType: formData.reportType || "Other",
         department: formData.department || "",
         vitals: formData.vitals || {},
@@ -425,6 +438,7 @@ const useReportForm = () => {
     handleDeleteMedicine,
     handleSubmitWeb2,
     handleSubmitWeb3,
+    setIsIdAvailable,
   };
 };
 

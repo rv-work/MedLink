@@ -1,9 +1,12 @@
+import { EmergencyContact } from "../Models/UserModel.js"; // adjust path if needed
+
 import { Doctor } from '../Models/Doctor.js';
 import HealthReport from '../Models/HealthReport.js';
 import Treatment from '../Models/Treatment.js';
 import { UserModel , Vitals } from '../Models/UserModel.js';
 import { DecryptArrayField  } from '../Utils/Encrypt.js';
 import { GoogleGenerativeAI  } from "@google/generative-ai";
+import twilio from "twilio";
 
 
 
@@ -1291,6 +1294,122 @@ export const getCriticalData = async (req, res) => {
       success: false,
       message: 'Internal server error',
       error: error.message
+    });
+  }
+};
+
+
+export const PleaseHelp = async (req, res) => {
+  try {
+    const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    const twilioWhatsApp = process.env.TWILIO_WHATSAPP_NUMBER;
+    const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
+    const user = req.user;
+    const { latitude, longitude, timestamp } = req.body;
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        success: false,
+        message: "Location coordinates are required",
+      });
+    }
+
+    // Create emergency message
+    const emergencyMessage = `🚨 EMERGENCY ALERT!
+    
+${user.name || "User"} may need immediate assistance!
+
+🕐 Time: ${new Date(timestamp || Date.now()).toLocaleString()}
+📍 Location: https://maps.google.com/?q=${latitude},${longitude}
+📱 Coordinates: ${latitude}, ${longitude}
+
+This is an automatic accident detection alert. Please check on them immediately and call emergency services if needed.
+
+- MediCare Emergency System`;
+
+    // Fetch all emergency contacts of user
+    const contacts = await EmergencyContact.find({ owner: user._id });
+
+    if (!contacts || contacts.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No emergency contacts configured",
+      });
+    }
+
+    const results = [];
+
+    for (const contact of contacts) {
+      const phone = contact.phone;
+
+      // ✅ SMS
+      try {
+        const sms = await client.messages.create({
+          body: emergencyMessage,
+          from: twilioPhone,
+          to: phone,
+        });
+        results.push({ contact: phone, type: "SMS", status: "sent", sid: sms.sid });
+      } catch (error) {
+        results.push({ contact: phone, type: "SMS", status: "failed", error: error.message });
+      }
+
+      // ✅ WhatsApp
+      try {
+        const whatsapp = await client.messages.create({
+          body: emergencyMessage,
+          from: `${twilioWhatsApp}`,
+          to: `whatsapp:${phone}`,
+        });
+        results.push({ contact: phone, type: "WhatsApp", status: "sent", sid: whatsapp.sid });
+      } catch (error) {
+        results.push({ contact: phone, type: "WhatsApp", status: "failed", error: error.message });
+      }
+
+      // ✅ Voice Call
+      try {
+        const call = await client.calls.create({
+          twiml: `<Response>
+            <Say voice="alice" rate="slow">
+              Emergency Alert! ${user.name || "A user"} may need immediate assistance.
+              They were detected in a possible accident at ${new Date().toLocaleString()}.
+              Please check on them immediately. 
+              Their location coordinates are ${latitude}, ${longitude}.
+              You can find them on Google Maps by searching these coordinates.
+              This message will repeat.
+            </Say>
+          </Response>`,
+          from: twilioPhone,
+          to: phone,
+        });
+        results.push({ contact: phone, type: "Call", status: "initiated", sid: call.sid });
+      } catch (error) {
+        results.push({ contact: phone, type: "Call", status: "failed", error: error.message });
+      }
+    }
+
+    // Final response
+    res.status(200).json({
+      success: true,
+      message: "Emergency alerts sent to all contacts",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      },
+      location: {
+        latitude,
+        longitude,
+        timestamp: timestamp || new Date().toISOString(),
+      },
+      notifications: results,
+    });
+  } catch (error) {
+    console.error("Emergency alert error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to send emergency alert",
+      error: error.message,
     });
   }
 };

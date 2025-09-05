@@ -35,6 +35,7 @@ userRouter.get('/reports', VerifyToken, UserReports);
 userRouter.get('/reports/:id', VerifyToken, UserReport);
 userRouter.get('/report-summary', VerifyToken, ReportSummary);
 userRouter.post('/report-medicines', VerifyToken, ReportMedicines);
+userRouter.post('/please-help', VerifyToken, ReportMedicines);
 
 
 userRouter.get('/:userId', getCriticalData);

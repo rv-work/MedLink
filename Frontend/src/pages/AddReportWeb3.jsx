@@ -39,6 +39,7 @@ const Web3AddReport = () => {
     handleSaveMedicine,
     handleDeleteMedicine,
     handleSubmitWeb3,
+    setIsIdAvailable,
   } = useReportForm();
 
   if (success) return <SuccessModal type="web3" />;
@@ -57,6 +58,11 @@ const Web3AddReport = () => {
             <PatientInfoFields
               formData={formData}
               handleChange={handleChange}
+            />
+            <DoctorLinkingFields
+              formData={formData}
+              handleChange={handleChange}
+              setIsIdAvailable={setIsIdAvailable}
             />
             <AdditionalFields formData={formData} handleChange={handleChange} />
             <TextAreaFields formData={formData} handleChange={handleChange} />

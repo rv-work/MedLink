@@ -53,10 +53,8 @@ function isAnswerNotFound(response) {
     );
 }
 
-// Function to get answer from internet/general knowledge
 async function getInternetAnswer(question) {
-    // Create a temporary history with the current question
-    const internetHistory = [...History]; // Copy current history
+    const internetHistory = [...History]; 
     internetHistory.push({
         role: 'user',
         parts: [{text: question}]
@@ -81,7 +79,6 @@ async function getInternetAnswer(question) {
 
 async function chatting(question) {
     try {
-        // Convert question into vector
         const queries = await transformQuery(question);
 
         const embeddings = new GoogleGenerativeAIEmbeddings({
