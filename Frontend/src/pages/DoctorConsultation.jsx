@@ -1,14 +1,9 @@
-// # FIXED Patient Consultation Component
-
-// Replace your `PatientConsultation.jsx` with this improved version:
-
-// ```javascript
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import io from "socket.io-client";
 
-const PatientConsultation = () => {
+const DoctorConsultation = () => {
   const { consultationId } = useParams();
   const navigate = useNavigate();
   const [consultation, setConsultation] = useState(null);
@@ -18,6 +13,7 @@ const PatientConsultation = () => {
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
+  const [notes, setNotes] = useState("");
   const [user, setUser] = useState(null);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
 
@@ -36,18 +32,13 @@ const PatientConsultation = () => {
       { urls: "stun:stun1.l.google.com:19302" },
       { urls: "stun:stun2.l.google.com:19302" },
       { urls: "stun:stun.services.mozilla.com" },
-      {
-        urls: "turn:turn.anyfirewall.com:443?transport=tcp", // public testing TURN
-        username: "webrtc",
-        credential: "webrtc",
-      },
     ],
     iceCandidatePoolSize: 10,
   };
 
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem("user") || "{}");
-    console.log("User data loaded:", userData);
+    console.log("Doctor user data loaded:", userData);
     setUser(userData);
     initializeConsultation();
 
@@ -58,7 +49,7 @@ const PatientConsultation = () => {
 
   const initializeConsultation = async () => {
     try {
-      console.log("🏥 Initializing consultation...");
+      console.log("🏥 Doctor initializing consultation...");
       const response = await fetch(
         `https://medlink-bh5c.onrender.com/api/consultation/${consultationId}`,
         { credentials: "include" }
@@ -68,12 +59,13 @@ const PatientConsultation = () => {
       if (data.success) {
         console.log("✅ Consultation data loaded:", data.consultation);
         setConsultation(data.consultation);
+        setNotes(data.consultation.notes || "");
 
         if (data.consultation.status === "accepted") {
           await initializeVideoCall();
         } else {
+          console.log("⏳ Consultation not yet accepted");
           setCallStatus("waiting");
-          console.log("⏳ Waiting for doctor to accept consultation");
         }
       }
     } catch (error) {
@@ -91,7 +83,7 @@ const PatientConsultation = () => {
     }
 
     isInitialized.current = true;
-    console.log("🚀 Starting video call initialization...");
+    console.log("🚀 Doctor starting video call initialization...");
 
     try {
       // Step 1: Get user media first
@@ -103,7 +95,7 @@ const PatientConsultation = () => {
       // Step 3: Set up peer connection
       await setupPeerConnection();
 
-      console.log("✅ Video call initialization completed");
+      console.log("✅ Doctor video call initialization completed");
     } catch (error) {
       console.error("❌ Error initializing video call:", error);
       toast.error("Failed to initialize video call: " + error.message);
@@ -114,7 +106,7 @@ const PatientConsultation = () => {
 
   const getUserMedia = async () => {
     try {
-      console.log("🎥 Getting user media...");
+      console.log("🎥 Doctor getting user media...");
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280, max: 1920 },
@@ -128,7 +120,7 @@ const PatientConsultation = () => {
         },
       });
 
-      console.log("✅ User media obtained:", stream);
+      console.log("✅ Doctor user media obtained:", stream);
       localStreamRef.current = stream;
 
       if (localVideoRef.current) {
@@ -144,7 +136,7 @@ const PatientConsultation = () => {
 
   const initializeSocket = () => {
     return new Promise((resolve, reject) => {
-      console.log("🔌 Connecting to Socket.IO server...");
+      console.log("🔌 Doctor connecting to Socket.IO server...");
 
       socketRef.current = io("https://medlink-bh5c.onrender.com", {
         transports: ["websocket", "polling"],
@@ -153,7 +145,7 @@ const PatientConsultation = () => {
       });
 
       socketRef.current.on("connect", () => {
-        console.log("✅ Socket.IO connected:", socketRef.current.id);
+        console.log("✅ Doctor Socket.IO connected:", socketRef.current.id);
         setupSocketEvents();
         resolve();
       });
@@ -177,55 +169,49 @@ const PatientConsultation = () => {
 
     // Handle consultation ready signal
     socket.on("consultation-ready", ({ participants, patient, doctor }) => {
-      console.log("🎯 Consultation ready:", { participants, patient, doctor });
+      console.log("🎯 Doctor: Consultation ready:", {
+        participants,
+        patient,
+        doctor,
+      });
       setCallStatus("negotiating");
     });
 
-    // Handle start call instruction
+    // Handle start call instruction (doctor is the caller)
     socket.on("start-call", ({ targetUserId, role }) => {
-      console.log(`📞 Start call as ${role} with target:`, targetUserId);
-      if (role === "receiver") {
-        setCallStatus("waiting_for_offer");
-        console.log("⏳ Waiting for offer from doctor...");
+      console.log(`📞 Doctor start call as ${role} with target:`, targetUserId);
+      if (role === "caller") {
+        // Doctor creates the offer
+        setTimeout(() => {
+          createAndSendOffer(targetUserId);
+        }, 500); // Small delay to ensure patient is ready
       }
     });
 
-    // Handle WebRTC offer
-    socket.on("webrtc-offer", async ({ offer, from, fromType }) => {
-      console.log(`📨 Received offer from ${fromType}:`, from);
+    // Handle WebRTC answer from patient
+    socket.on("webrtc-answer", async ({ answer, from, fromType }) => {
+      console.log(`📨 Doctor received answer from ${fromType}:`, from);
 
-      if (peerConnectionRef.current && offer) {
+      if (peerConnectionRef.current && answer) {
         try {
-          await peerConnectionRef.current.setRemoteDescription(offer);
-          console.log("✅ Remote description set");
-
-          const answer = await peerConnectionRef.current.createAnswer();
-          await peerConnectionRef.current.setLocalDescription(answer);
-          console.log("✅ Answer created and local description set");
-
-          socket.emit("webrtc-answer", {
-            consultationId,
-            answer,
-            targetUserId: from,
-          });
-          console.log("📤 Answer sent to doctor");
-
+          await peerConnectionRef.current.setRemoteDescription(answer);
+          console.log("✅ Doctor: Remote description set");
           setCallStatus("connecting");
         } catch (error) {
-          console.error("❌ Error handling offer:", error);
-          toast.error("Failed to process video call offer");
+          console.error("❌ Error handling answer:", error);
+          toast.error("Failed to process video call answer");
         }
       }
     });
 
     // Handle ICE candidates
     socket.on("webrtc-ice-candidate", async ({ candidate, from }) => {
-      console.log(`🧊 Received ICE candidate from ${from}`);
+      console.log(`🧊 Doctor received ICE candidate from ${from}`);
 
       if (peerConnectionRef.current && candidate) {
         try {
           await peerConnectionRef.current.addIceCandidate(candidate);
-          console.log("✅ ICE candidate added");
+          console.log("✅ Doctor: ICE candidate added");
         } catch (error) {
           console.error("❌ Error adding ICE candidate:", error);
         }
@@ -241,18 +227,11 @@ const PatientConsultation = () => {
       ]);
     });
 
-    // Handle consultation ended
-    socket.on("consultation-ended", () => {
-      console.log("🔚 Consultation ended by doctor");
-      setCallStatus("ended");
-      toast.info("Doctor has ended the consultation");
-    });
-
     // Handle user left
     socket.on("user-left", ({ userId, userType, reason }) => {
       console.log(`👋 ${userType} ${userId} left:`, reason);
       setCallStatus("ended");
-      toast.info("Doctor has left the consultation");
+      toast.info("Patient has left the consultation");
     });
 
     // Handle WebRTC errors
@@ -264,7 +243,7 @@ const PatientConsultation = () => {
 
   const setupPeerConnection = async () => {
     try {
-      console.log("🔗 Setting up peer connection...");
+      console.log("🔗 Doctor setting up peer connection...");
 
       peerConnectionRef.current = new RTCPeerConnection(pcConfig);
       const pc = peerConnectionRef.current;
@@ -272,30 +251,30 @@ const PatientConsultation = () => {
       // Add local stream tracks
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => {
-          console.log("➕ Adding track to peer connection:", track.kind);
+          console.log("➕ Doctor adding track to peer connection:", track.kind);
           pc.addTrack(track, localStreamRef.current);
         });
       }
 
       // Handle remote stream
       pc.ontrack = (event) => {
-        console.log("📺 Remote track received:", event.track.kind);
+        console.log("📺 Doctor: Remote track received:", event.track.kind);
 
         if (remoteVideoRef.current && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
           setCallStatus("connected");
-          console.log("✅ Remote video stream connected");
+          console.log("✅ Doctor: Remote video stream connected");
         }
       };
 
       // Handle ICE candidates
       pc.onicecandidate = (event) => {
         if (event.candidate && socketRef.current) {
-          console.log("🧊 Sending ICE candidate");
+          console.log("🧊 Doctor sending ICE candidate");
           socketRef.current.emit("webrtc-ice-candidate", {
             consultationId,
             candidate: event.candidate,
-            targetUserId: consultation?.doctor?._id,
+            targetUserId: consultation?.patient?._id,
           });
         }
       };
@@ -303,13 +282,13 @@ const PatientConsultation = () => {
       // Handle connection state changes
       pc.onconnectionstatechange = () => {
         const state = pc.connectionState;
-        console.log(`🔄 Connection state changed: ${state}`);
+        console.log(`🔄 Doctor connection state changed: ${state}`);
 
         if (state === "connected") {
           setCallStatus("connected");
           setConnectionAttempts(0);
         } else if (state === "failed") {
-          console.error("❌ WebRTC connection failed");
+          console.error("❌ Doctor WebRTC connection failed");
           setCallStatus("failed");
           handleConnectionFailure();
         } else if (state === "disconnected") {
@@ -323,33 +302,61 @@ const PatientConsultation = () => {
           socketRef.current.emit("webrtc-connection-state", {
             consultationId,
             state,
-            targetUserId: consultation?.doctor?._id,
+            targetUserId: consultation?.patient?._id,
           });
         }
       };
 
       // Handle ICE connection state changes
       pc.oniceconnectionstatechange = () => {
-        console.log(`🧊 ICE connection state: ${pc.iceConnectionState}`);
+        console.log(`🧊 Doctor ICE connection state: ${pc.iceConnectionState}`);
 
         if (pc.iceConnectionState === "failed") {
-          console.log("🔄 ICE connection failed, attempting restart...");
+          console.log("🔄 Doctor ICE connection failed, attempting restart...");
           pc.restartIce();
         }
       };
 
       // Now join the consultation
       const userId = user?.id || user?._id || user?.userId;
-      console.log("👤 Joining consultation as patient:", userId);
+      console.log("👤 Doctor joining consultation:", userId);
 
       socketRef.current.emit("join-consultation", {
         consultationId,
         userId: userId.toString(),
-        userType: "patient",
+        userType: "doctor",
       });
     } catch (error) {
       console.error("❌ Error setting up peer connection:", error);
       throw error;
+    }
+  };
+
+  const createAndSendOffer = async (targetUserId) => {
+    try {
+      console.log("📤 Doctor creating offer for patient:", targetUserId);
+
+      if (peerConnectionRef.current) {
+        const offer = await peerConnectionRef.current.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true,
+        });
+
+        await peerConnectionRef.current.setLocalDescription(offer);
+        console.log("✅ Doctor: Local description set");
+
+        socketRef.current.emit("webrtc-offer", {
+          consultationId,
+          offer,
+          targetUserId: targetUserId,
+        });
+
+        console.log("📤 Doctor: Offer sent to patient");
+        setCallStatus("waiting_for_answer");
+      }
+    } catch (error) {
+      console.error("❌ Error creating offer:", error);
+      toast.error("Failed to create video call offer");
     }
   };
 
@@ -358,13 +365,13 @@ const PatientConsultation = () => {
 
     if (connectionAttempts < 3) {
       console.log(
-        `🔄 Retrying connection (attempt ${connectionAttempts + 1}/3)...`
+        `🔄 Doctor retrying connection (attempt ${connectionAttempts + 1}/3)...`
       );
       setTimeout(() => {
         restartConnection();
       }, 2000);
     } else {
-      console.error("❌ Max connection attempts reached");
+      console.error("❌ Doctor: Max connection attempts reached");
       toast.error(
         "Unable to establish video connection. Please refresh the page."
       );
@@ -373,7 +380,7 @@ const PatientConsultation = () => {
 
   const restartConnection = async () => {
     try {
-      console.log("🔄 Restarting connection...");
+      console.log("🔄 Doctor restarting connection...");
 
       // Close existing peer connection
       if (peerConnectionRef.current) {
@@ -393,7 +400,9 @@ const PatientConsultation = () => {
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setIsVideoEnabled(videoTrack.enabled);
-        console.log(`📹 Video ${videoTrack.enabled ? "enabled" : "disabled"}`);
+        console.log(
+          `📹 Doctor video ${videoTrack.enabled ? "enabled" : "disabled"}`
+        );
       }
     }
   };
@@ -404,7 +413,9 @@ const PatientConsultation = () => {
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setIsAudioEnabled(audioTrack.enabled);
-        console.log(`🎤 Audio ${audioTrack.enabled ? "enabled" : "disabled"}`);
+        console.log(
+          `🎤 Doctor audio ${audioTrack.enabled ? "enabled" : "disabled"}`
+        );
       }
     }
   };
@@ -413,7 +424,7 @@ const PatientConsultation = () => {
     if (newMessage.trim() && socketRef.current) {
       const messageData = {
         message: newMessage,
-        sender: user?.name || "Patient",
+        sender: user?.name || "Doctor",
         timestamp: new Date(),
       };
 
@@ -424,7 +435,29 @@ const PatientConsultation = () => {
 
       setMessages((prev) => [...prev, { ...messageData, isOwn: true }]);
       setNewMessage("");
-      console.log("💬 Message sent:", messageData.message);
+      console.log("💬 Doctor message sent:", messageData.message);
+    }
+  };
+
+  const saveNotes = async () => {
+    try {
+      const response = await fetch(
+        `https://medlink-bh5c.onrender.com/api/consultation/${consultationId}/status`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ notes }),
+        }
+      );
+
+      if (response.ok) {
+        toast.success("Notes saved successfully");
+        console.log("📝 Notes saved");
+      }
+    } catch (error) {
+      console.error("❌ Error saving notes:", error);
+      toast.error("Failed to save notes");
     }
   };
 
@@ -434,7 +467,7 @@ const PatientConsultation = () => {
     }
 
     try {
-      console.log("🔚 Ending consultation...");
+      console.log("🔚 Doctor ending consultation...");
 
       const response = await fetch(
         `https://medlink-bh5c.onrender.com/api/consultation/${consultationId}/status`,
@@ -442,7 +475,7 @@ const PatientConsultation = () => {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ status: "completed" }),
+          body: JSON.stringify({ status: "completed", notes }),
         }
       );
 
@@ -460,7 +493,7 @@ const PatientConsultation = () => {
   };
 
   const cleanup = () => {
-    console.log("🧹 Cleaning up resources...");
+    console.log("🧹 Doctor cleaning up resources...");
 
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
@@ -490,8 +523,8 @@ const PatientConsultation = () => {
         return "Establishing connection...";
       case "negotiating":
         return "Setting up video call...";
-      case "waiting_for_offer":
-        return "Waiting for doctor to start video...";
+      case "waiting_for_answer":
+        return "Waiting for patient response...";
       case "failed":
         return "Connection failed. Retrying...";
       case "connected":
@@ -519,10 +552,10 @@ const PatientConsultation = () => {
           <div className="text-green-600 text-6xl mb-4">✓</div>
           <h2 className="text-2xl font-semibold mb-2">Consultation Complete</h2>
           <p className="text-gray-600 mb-4">
-            Thank you for using our consultation service.
+            Patient consultation has been successfully completed.
           </p>
           <button
-            onClick={() => navigate("/patient/consultations")}
+            onClick={() => navigate("/doctor/consultations")}
             className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
           >
             Back to Consultations
@@ -536,8 +569,8 @@ const PatientConsultation = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-6">
         {/* Debug Info (remove in production) */}
-        <div className="mb-4 p-3 bg-yellow-100 rounded-lg text-sm">
-          <strong>Debug:</strong> Status: {callStatus} | User ID:{" "}
+        <div className="mb-4 p-3 bg-blue-100 rounded-lg text-sm">
+          <strong>Doctor Debug:</strong> Status: {callStatus} | User ID:{" "}
           {user?.id || user?._id || "not found"} | Attempts:{" "}
           {connectionAttempts}/3
         </div>
@@ -583,7 +616,7 @@ const PatientConsultation = () => {
                       <p className="text-sm text-gray-300 mt-1">
                         {callStatus === "failed"
                           ? `Retrying... (${connectionAttempts}/3)`
-                          : "Please wait while we connect you to the doctor"}
+                          : "Setting up secure video connection"}
                       </p>
                       {callStatus === "failed" && (
                         <button
@@ -636,10 +669,10 @@ const PatientConsultation = () => {
 
           {/* Chat and Info Section */}
           <div className="space-y-4">
-            {/* Doctor Info */}
+            {/* Patient Info */}
             <div className="bg-white rounded-lg shadow-sm p-4">
               <h3 className="font-semibold mb-2">
-                {consultation?.doctor?.name || "Doctor"}
+                {consultation?.patient?.name || "Patient"}
               </h3>
               <p className="text-sm text-gray-600">
                 {consultation?.consultationType}
@@ -667,7 +700,7 @@ const PatientConsultation = () => {
               <div className="space-y-2 max-h-64 overflow-y-auto mb-3">
                 {messages.length === 0 ? (
                   <p className="text-gray-500 text-sm">
-                    Start a conversation with your doctor
+                    Start a conversation with your patient
                   </p>
                 ) : (
                   messages.map((msg, index) => (
@@ -704,16 +737,37 @@ const PatientConsultation = () => {
               </div>
             </div>
 
-            {/* Consultation Details */}
+            {/* Notes Section */}
             <div className="bg-white rounded-lg shadow-sm p-4">
-              <h3 className="font-semibold mb-2">Consultation Details</h3>
+              <h3 className="font-semibold mb-3">Consultation Notes</h3>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add your notes here..."
+                rows="4"
+                className="w-full px-3 py-2 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={saveNotes}
+                className="mt-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700"
+              >
+                Save Notes
+              </button>
+            </div>
+
+            {/* Patient Details */}
+            <div className="bg-white rounded-lg shadow-sm p-4">
+              <h3 className="font-semibold mb-2">Patient Details</h3>
               <div className="text-sm text-gray-600 space-y-1">
+                <p>
+                  <strong>Name:</strong> {consultation?.patient?.name}
+                </p>
                 <p>
                   <strong>Problem:</strong> {consultation?.problemTitle}
                 </p>
                 <p>
                   <strong>Type:</strong> {consultation?.consultationType} •{" "}
-                  <strong>Priority:</strong> {consultation?.urgency}
+                  <strong>Urgency:</strong> {consultation?.urgency}
                 </p>
               </div>
             </div>
@@ -724,34 +778,4 @@ const PatientConsultation = () => {
   );
 };
 
-export default PatientConsultation;
-
-// ```
-
-// ## Key Improvements in Patient Component:
-
-// ### 1. **Proper Initialization Flow**
-// - Sequential initialization: Media → Socket → WebRTC
-// - Protection against multiple initializations
-// - Better error handling at each step
-
-// ### 2. **Enhanced WebRTC Signaling**
-// - Waits for `consultation-ready` event
-// - Responds to `start-call` instructions
-// - Proper offer/answer flow handling
-
-// ### 3. **Connection Management**
-// - Connection state monitoring
-// - Automatic retry mechanism (up to 3 attempts)
-// - ICE restart on connection failure
-
-// ### 4. **Debugging Features**
-// - Extensive console logging
-// - Debug info panel (remove in production)
-// - Connection status indicators
-
-// ### 5. **Better User Experience**
-// - Clear status messages
-// - Visual connection indicators
-// - Manual retry option
-// - Improved error messages
+export default DoctorConsultation;
