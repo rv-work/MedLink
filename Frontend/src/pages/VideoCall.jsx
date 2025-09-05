@@ -123,16 +123,9 @@ export default function VideoCall() {
       : `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // -----------------------------
-  // ICE / TURN helper
-  // -----------------------------
-  // Attempts to fetch an iceServers array from a backend endpoint (recommended).
-  // If not available, returns a fallback array (STUNs + a demo OpenRelay entry).
-  // Replace demo entries / add your provider credentials for production.
   const getIceServers = async () => {
     try {
       if (ICE_SERVERS_ENDPOINT) {
-        // Expect backend to return JSON: { iceServers: [...] }
         const res = await fetch(ICE_SERVERS_ENDPOINT, { method: "GET" });
         if (res.ok) {
           const json = await res.json();
@@ -148,15 +141,16 @@ export default function VideoCall() {
       console.warn("Failed to fetch ice servers from endpoint:", err);
     }
 
-    // FALLBACK – public STUNs and an OpenRelay demo entry:
-    // NOTE: Demo credentials may not work or may change. Replace with your own provider credentials.
-    // You can sign-up at Metered/OpenRelay and provide credentials from your backend to this client.
     const fallback = [
+      // Public STUN (reliable)
       { urls: "stun:stun.l.google.com:19302" },
       { urls: "stun:stun1.l.google.com:19302" },
       { urls: "stun:stun2.l.google.com:19302" },
-      // Metered/OpenRelay recommended usage: obtain credentials from provider REST API.
-      // This demo entry may or may not be accepted by the provider; replace with valid credentials.
+      { urls: "stun:stun3.l.google.com:19302" },
+      { urls: "stun:stun.services.mozilla.com" },
+      { urls: "stun:stun.stunprotocol.org:3478" },
+
+      // Free TURN (for testing only, not 100% reliable)
       {
         urls: [
           "stun:relay.metered.ca:80",
@@ -165,15 +159,9 @@ export default function VideoCall() {
           "turn:relay.metered.ca:443",
           "turn:relay.metered.ca:443?transport=tcp",
         ],
-        username: "openrelayproject", // demo placeholder — replace with your credential
-        credential: "openrelayproject", // demo placeholder — replace with your credential
+        username: "openrelayproject",
+        credential: "openrelayproject",
       },
-      // Additional demo entry (older/public examples — replace for production)
-      // {
-      //   urls: "turn:numb.viagenie.ca",
-      //   username: "<username>",
-      //   credential: "<password>"
-      // }
     ];
 
     console.warn(
