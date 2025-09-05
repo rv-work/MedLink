@@ -16,7 +16,10 @@ export default function VideoCall() {
   const navigate = useNavigate();
   const { consultationId } = useParams();
   const pendingCandidatesRef = useRef({});
-  const isInitiatorRef = useRef({}); // Track who should initiate offer
+  const isInitiatorRef = useRef({});
+
+  // Video play promise tracking to prevent interruption errors
+  const playPromisesRef = useRef({});
 
   const [remoteStreams, setRemoteStreams] = useState({});
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
@@ -55,7 +58,6 @@ export default function VideoCall() {
     userName = isDoctor ? `doctor-${Date.now()}` : `patient-${Date.now()}`;
   }
 
-  // Translation language lists
   const languages = translationService.getSupportedLanguages();
   const languageFamilies = translationService.getLanguageFamilies();
   const stateLanguages = translationService.getStateLanguages();
@@ -74,6 +76,35 @@ export default function VideoCall() {
     }
     return () => clearInterval(interval);
   }, [isCallStarted]);
+
+  // Improved video play function to handle play promise properly
+  const safeVideoPlay = useCallback(async (videoElement, userId = "local") => {
+    if (!videoElement) return;
+
+    try {
+      // Cancel any existing play promise
+      if (playPromisesRef.current[userId]) {
+        try {
+          await playPromisesRef.current[userId];
+        } catch (e) {
+          // Ignore abort errors from previous play attempts
+        }
+      }
+
+      // Only attempt to play if video is paused and has data
+      if (videoElement.paused && videoElement.readyState >= 2) {
+        playPromisesRef.current[userId] = videoElement.play();
+        await playPromisesRef.current[userId];
+        console.log(`Video started playing for ${userId}`);
+      }
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        console.warn(`Video play failed for ${userId}:`, error);
+      }
+    } finally {
+      delete playPromisesRef.current[userId];
+    }
+  }, []);
 
   // Speech Recognition setup
   useEffect(() => {
@@ -130,16 +161,15 @@ export default function VideoCall() {
       console.warn("Failed to fetch ice servers from endpoint:", err);
     }
 
+    // Improved ICE servers configuration
     const fallback = [
       { urls: "stun:stun.l.google.com:19302" },
       { urls: "stun:stun1.l.google.com:19302" },
       { urls: "stun:stun2.l.google.com:19302" },
-      { urls: "stun:stun3.l.google.com:19302" },
-      { urls: "stun:stun.services.mozilla.com" },
       { urls: "stun:stun.stunprotocol.org:3478" },
+      { urls: "stun:stun.services.mozilla.com" },
       {
         urls: [
-          "stun:relay.metered.ca:80",
           "turn:relay.metered.ca:80",
           "turn:relay.metered.ca:443",
           "turn:relay.metered.ca:443?transport=tcp",
@@ -163,7 +193,6 @@ export default function VideoCall() {
       return;
     }
 
-    // Setup local video first
     setupLocalVideo();
 
     try {
@@ -178,16 +207,24 @@ export default function VideoCall() {
     ws.current.onopen = () => {
       console.log("WebSocket connected");
       setConnectionStatus("connected");
-      // Join the channel after local video is set up
       if (localStreamRef.current) {
         joinChannel();
       }
     };
 
-    ws.current.onclose = () => {
-      console.log("WebSocket closed");
+    ws.current.onclose = (event) => {
+      console.log("WebSocket closed:", event.code, event.reason);
       setConnectionStatus("disconnected");
-      toast.error("Connection lost. Attempting to reconnect...");
+      // Attempt reconnection after a delay
+      if (event.code !== 1000) {
+        // Not a normal closure
+        setTimeout(() => {
+          if (ws.current?.readyState === WebSocket.CLOSED) {
+            toast.error("Connection lost. Attempting to reconnect...");
+            // Implement reconnection logic here
+          }
+        }, 3000);
+      }
     };
 
     ws.current.onerror = (error) => {
@@ -258,18 +295,28 @@ export default function VideoCall() {
 
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
-        localVideoRef.current.onloadedmetadata = () => {
+
+        // Improved video loading and play handling
+        const handleLoadedMetadata = async () => {
           console.log("Local video metadata loaded");
           setLocalVideoReady(true);
-          localVideoRef.current.play().catch((error) => {
-            console.warn("Auto-play prevented:", error);
-          });
+          await safeVideoPlay(localVideoRef.current, "local");
         };
+
+        localVideoRef.current.addEventListener(
+          "loadedmetadata",
+          handleLoadedMetadata,
+          { once: true }
+        );
+
+        // Handle play errors gracefully
+        localVideoRef.current.addEventListener("error", (error) => {
+          console.error("Local video error:", error);
+        });
       }
 
       toast.success("Camera and microphone connected");
 
-      // If WebSocket is already connected, join the channel
       if (ws.current && ws.current.readyState === WebSocket.OPEN) {
         joinChannel();
       }
@@ -299,6 +346,11 @@ export default function VideoCall() {
 
   const cleanup = () => {
     console.log("Cleaning up...");
+
+    // Clear all play promises
+    Object.keys(playPromisesRef.current).forEach((userId) => {
+      delete playPromisesRef.current[userId];
+    });
 
     if (ws.current) {
       sendWsMessage("quit", { channelName, userName });
@@ -375,12 +427,15 @@ export default function VideoCall() {
       console.warn("getIceServers failed, using empty iceServers", err);
     }
 
+    // Improved RTCPeerConnection configuration
     const pc = new RTCPeerConnection({
       iceServers,
       iceCandidatePoolSize: 10,
+      bundlePolicy: "balanced",
+      rtcpMuxPolicy: "require",
+      iceTransportPolicy: "all",
     });
 
-    // Initialize pending candidates array
     pendingCandidatesRef.current[remoteUserName] = [];
     isInitiatorRef.current[remoteUserName] = shouldCreateOffer;
 
@@ -394,22 +449,25 @@ export default function VideoCall() {
       }
     });
 
-    // Handle remote tracks
+    // Handle remote tracks with improved stream management
     pc.ontrack = (event) => {
       console.log(
         `Received remote track from ${remoteUserName}:`,
         event.track.kind
       );
       if (event.streams && event.streams[0]) {
-        setRemoteStreams((prev) => ({
-          ...prev,
-          [remoteUserName]: event.streams[0],
-        }));
-        console.log(`Remote stream set for ${remoteUserName}`);
+        setRemoteStreams((prev) => {
+          const updated = {
+            ...prev,
+            [remoteUserName]: event.streams[0],
+          };
+          console.log(`Remote stream updated for ${remoteUserName}`);
+          return updated;
+        });
       }
     };
 
-    // Handle ICE candidates
+    // Improved ICE candidate handling
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         console.log(`ICE candidate for ${remoteUserName}:`, event.candidate);
@@ -424,32 +482,50 @@ export default function VideoCall() {
             sdpMLineIndex: event.candidate.sdpMLineIndex,
           },
         });
+      } else {
+        console.log(`ICE gathering completed for ${remoteUserName}`);
       }
     };
 
-    // Connection state changes
+    // Enhanced connection state handling
     pc.onconnectionstatechange = () => {
       console.log(
         `Connection state for ${remoteUserName}:`,
         pc.connectionState
       );
-      if (pc.connectionState === "connected") {
-        console.log(`Successfully connected to ${remoteUserName}`);
-        toast.success(`Connected to ${remoteUserName}`);
-      } else if (pc.connectionState === "failed") {
-        console.log(
-          `Connection failed for ${remoteUserName}, attempting restart`
-        );
-        try {
-          pc.restartIce();
-        } catch (e) {}
-      } else if (pc.connectionState === "disconnected") {
-        console.log(`Connection disconnected for ${remoteUserName}`);
-        setRemoteStreams((prev) => {
-          const updated = { ...prev };
-          delete updated[remoteUserName];
-          return updated;
-        });
+
+      switch (pc.connectionState) {
+        case "connected":
+          console.log(`Successfully connected to ${remoteUserName}`);
+          toast.success(`Connected to ${remoteUserName}`);
+          break;
+        case "failed":
+          console.log(
+            `Connection failed for ${remoteUserName}, attempting restart`
+          );
+          handleConnectionFailure(remoteUserName, pc);
+          break;
+        case "disconnected":
+          console.log(`Connection disconnected for ${remoteUserName}`);
+          // Don't immediately remove stream, wait for reconnection
+          setTimeout(() => {
+            if (pc.connectionState === "disconnected") {
+              setRemoteStreams((prev) => {
+                const updated = { ...prev };
+                delete updated[remoteUserName];
+                return updated;
+              });
+            }
+          }, 5000); // Wait 5 seconds before removing
+          break;
+        case "closed":
+          console.log(`Connection closed for ${remoteUserName}`);
+          setRemoteStreams((prev) => {
+            const updated = { ...prev };
+            delete updated[remoteUserName];
+            return updated;
+          });
+          break;
       }
     };
 
@@ -458,11 +534,23 @@ export default function VideoCall() {
         `ICE connection state for ${remoteUserName}:`,
         pc.iceConnectionState
       );
+
+      // Handle ICE connection state changes
+      if (pc.iceConnectionState === "failed") {
+        handleConnectionFailure(remoteUserName, pc);
+      }
+    };
+
+    // Handle ICE gathering state
+    pc.onicegatheringstatechange = () => {
+      console.log(
+        `ICE gathering state for ${remoteUserName}:`,
+        pc.iceGatheringState
+      );
     };
 
     peerConnectionsRef.current[remoteUserName] = pc;
 
-    // Create offer if this peer should initiate
     if (shouldCreateOffer) {
       try {
         console.log(`Creating offer for ${remoteUserName}`);
@@ -486,12 +574,38 @@ export default function VideoCall() {
     return pc;
   };
 
+  // New function to handle connection failures
+  const handleConnectionFailure = async (remoteUserName, pc) => {
+    console.log(`Handling connection failure for ${remoteUserName}`);
+
+    try {
+      // Attempt ICE restart
+      pc.restartIce();
+      console.log(`ICE restart initiated for ${remoteUserName}`);
+    } catch (error) {
+      console.error(`ICE restart failed for ${remoteUserName}:`, error);
+
+      // As a last resort, recreate the peer connection
+      setTimeout(() => {
+        if (pc.connectionState === "failed") {
+          console.log(`Recreating peer connection for ${remoteUserName}`);
+          delete peerConnectionsRef.current[remoteUserName];
+          delete pendingCandidatesRef.current[remoteUserName];
+          delete isInitiatorRef.current[remoteUserName];
+
+          // Recreate with same initiation logic
+          const shouldCreateOffer = userName < remoteUserName;
+          setupPeerConnection(remoteUserName, shouldCreateOffer);
+        }
+      }, 3000);
+    }
+  };
+
   const handleOffer = async (from, offer) => {
     console.log(`Handling offer from ${from}`);
 
     let pc = peerConnectionsRef.current[from];
     if (!pc) {
-      // Create peer connection but don't create offer (we're answering)
       pc = await setupPeerConnection(from, false);
     }
 
@@ -501,32 +615,33 @@ export default function VideoCall() {
     }
 
     try {
-      console.log(`Setting remote description for ${from}`);
-      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      // Check if we can set the remote description
+      if (
+        pc.signalingState === "stable" ||
+        pc.signalingState === "have-local-offer"
+      ) {
+        console.log(`Setting remote description for ${from}`);
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
-      // Process any pending ICE candidates
-      const pending = pendingCandidatesRef.current[from] || [];
-      for (const candidate of pending) {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-          console.log(`Added pending ICE candidate for ${from}`);
-        } catch (err) {
-          console.error("Error adding pending candidate:", err);
-        }
+        // Process pending ICE candidates
+        await processPendingCandidates(from, pc);
+
+        console.log(`Creating answer for ${from}`);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        sendWsMessage("send_answer", {
+          channelName,
+          userName,
+          from: userName,
+          to: from,
+          sdp: answer,
+        });
+      } else {
+        console.warn(
+          `Invalid signaling state for setting remote description: ${pc.signalingState}`
+        );
       }
-      pendingCandidatesRef.current[from] = [];
-
-      console.log(`Creating answer for ${from}`);
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-
-      sendWsMessage("send_answer", {
-        channelName,
-        userName,
-        from: userName,
-        to: from,
-        sdp: answer,
-      });
     } catch (err) {
       console.error(`Error handling offer from ${from}:`, err);
     }
@@ -546,17 +661,8 @@ export default function VideoCall() {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
         console.log(`Remote description set for ${from}`);
 
-        // Process any pending ICE candidates
-        const pending = pendingCandidatesRef.current[from] || [];
-        for (const candidate of pending) {
-          try {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
-            console.log(`Added pending ICE candidate for ${from}`);
-          } catch (err) {
-            console.error("Error adding pending candidate:", err);
-          }
-        }
-        pendingCandidatesRef.current[from] = [];
+        // Process pending ICE candidates
+        await processPendingCandidates(from, pc);
       } else {
         console.warn(
           `Invalid state for setting remote description: ${pc.signalingState}`
@@ -565,6 +671,26 @@ export default function VideoCall() {
     } catch (err) {
       console.error(`Error handling answer from ${from}:`, err);
     }
+  };
+
+  // New function to process pending ICE candidates
+  const processPendingCandidates = async (from, pc) => {
+    const pending = pendingCandidatesRef.current[from] || [];
+    console.log(
+      `Processing ${pending.length} pending ICE candidates for ${from}`
+    );
+
+    for (const candidate of pending) {
+      try {
+        if (pc.remoteDescription) {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          console.log(`Added pending ICE candidate for ${from}`);
+        }
+      } catch (err) {
+        console.error("Error adding pending candidate:", err);
+      }
+    }
+    pendingCandidatesRef.current[from] = [];
   };
 
   const handleRemoteIceCandidate = async (from, candidate) => {
@@ -579,7 +705,7 @@ export default function VideoCall() {
     }
 
     try {
-      if (pc.remoteDescription) {
+      if (pc.remoteDescription && pc.remoteDescription.sdp) {
         await pc.addIceCandidate(new RTCIceCandidate(candidate));
         console.log(`Added ICE candidate from ${from}`);
       } else {
@@ -605,7 +731,6 @@ export default function VideoCall() {
       toast.success("Call started successfully!");
     }
 
-    // Set up peer connections for new users only
     const currentConnections = Object.keys(peerConnectionsRef.current);
     const newUsers = userNames.filter(
       (user) =>
@@ -613,17 +738,15 @@ export default function VideoCall() {
         !currentConnections.includes(user.userName)
     );
 
-    newUsers.forEach((user) => {
-      // The user with lexicographically smaller userName creates the offer
+    newUsers.forEach((user, index) => {
       const shouldCreateOffer = userName < user.userName;
       console.log(
         `Setting up new connection: ${userName} -> ${user.userName}, shouldCreateOffer: ${shouldCreateOffer}`
       );
 
-      // Add delay to ensure proper setup
       setTimeout(() => {
         setupPeerConnection(user.userName, shouldCreateOffer);
-      }, 200 * (newUsers.indexOf(user) + 1)); // Stagger connection attempts
+      }, 500 * (index + 1)); // Increased delay and staggered
     });
 
     // Clean up connections for users who left
@@ -837,15 +960,10 @@ export default function VideoCall() {
     }
   };
 
-  const handleVideoClick = async (videoRef) => {
-    if (videoRef.current && videoRef.current.paused) {
-      try {
-        await videoRef.current.play();
-        console.log("Video started playing after click");
-      } catch (err) {
-        console.error("Error playing video:", err);
-        toast.error("Could not start video playback");
-      }
+  // Improved video click handler
+  const handleVideoClick = async (videoRef, userId = "unknown") => {
+    if (videoRef.current) {
+      await safeVideoPlay(videoRef.current, userId);
     }
   };
 
@@ -1011,7 +1129,10 @@ export default function VideoCall() {
                 muted
                 playsInline
                 className="w-full h-full object-cover cursor-pointer"
-                onClick={() => handleVideoClick(localVideoRef)}
+                onClick={() => handleVideoClick(localVideoRef, "local")}
+                onError={(e) => {
+                  console.error("Local video error:", e);
+                }}
               />
 
               {!localVideoReady && (
@@ -1064,10 +1185,13 @@ export default function VideoCall() {
                     playsInline
                     className="w-full h-full object-cover"
                     ref={(video) => {
-                      if (video && stream) {
+                      if (video && stream && video.srcObject !== stream) {
                         video.srcObject = stream;
-                        video.play().catch(console.error);
+                        safeVideoPlay(video, userId);
                       }
+                    }}
+                    onLoadedMetadata={(e) => {
+                      safeVideoPlay(e.target, userId);
                     }}
                     onError={(e) => {
                       console.error(`Remote video error for ${userId}:`, e);
