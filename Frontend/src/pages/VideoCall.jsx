@@ -23,6 +23,8 @@ export default function VideoCall() {
   const [showChat, setShowChat] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [isCallStarted, setIsCallStarted] = useState(false);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const maxReconnectAttempts = 3;
 
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
@@ -34,7 +36,6 @@ export default function VideoCall() {
     channelName = `consultation-${consultationId}`;
   }
   if (!userName && consultationId) {
-    // Determine user type based on current route
     const isDoctor = location.pathname.includes("/doctor/");
     userName = isDoctor ? `doctor-${Date.now()}` : `patient-${Date.now()}`;
   }
@@ -50,7 +51,6 @@ export default function VideoCall() {
     return () => clearInterval(interval);
   }, [isCallStarted]);
 
-  // Format call duration
   const formatDuration = (seconds) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -62,11 +62,26 @@ export default function VideoCall() {
       : `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  useEffect(() => {
+  const sendWsMessage = useCallback((type, body) => {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      try {
+        ws.current.send(JSON.stringify({ type, body }));
+      } catch (error) {
+        console.error("Error sending WebSocket message:", error);
+      }
+    }
+  }, []);
+
+  const connectWebSocket = useCallback(() => {
     if (!channelName || !userName) {
       toast.error("Invalid consultation session");
       navigate("/dashboard");
       return;
+    }
+
+    // Close existing connection if any
+    if (ws.current) {
+      ws.current.close();
     }
 
     ws.current = new WebSocket(URL_WEB_SOCKET);
@@ -74,12 +89,22 @@ export default function VideoCall() {
     ws.current.onopen = () => {
       console.log("WebSocket connected");
       setConnectionStatus("connected");
+      setReconnectAttempts(0);
       setupDevice();
     };
 
-    ws.current.onclose = () => {
-      console.log("WebSocket closed");
+    ws.current.onclose = (event) => {
+      console.log("WebSocket closed", event);
       setConnectionStatus("disconnected");
+
+      // Attempt to reconnect if it wasn't a clean close
+      if (!event.wasClean && reconnectAttempts < maxReconnectAttempts) {
+        setTimeout(() => {
+          console.log(`Reconnection attempt ${reconnectAttempts + 1}`);
+          setReconnectAttempts((prev) => prev + 1);
+          connectWebSocket();
+        }, 2000 * (reconnectAttempts + 1)); // Exponential backoff
+      }
     };
 
     ws.current.onerror = (error) => {
@@ -89,27 +114,40 @@ export default function VideoCall() {
     };
 
     ws.current.onmessage = (message) => {
-      const { type, body } = JSON.parse(message.data);
-      switch (type) {
-        case "joined":
-          handleJoined(body);
-          break;
-        case "offer_sdp_received":
-          handleOffer(body.from, body.sdp);
-          break;
-        case "answer_sdp_received":
-          handleAnswer(body.from, body.sdp);
-          break;
-        case "ice_candidate_received":
-          handleRemoteIceCandidate(body.from, body.candidate);
-          break;
-        case "chat_message":
-          handleChatMessage(body);
-          break;
-        default:
-          break;
+      try {
+        const { type, body } = JSON.parse(message.data);
+        switch (type) {
+          case "joined":
+            handleJoined(body);
+            break;
+          case "offer_sdp_received":
+            handleOffer(body.from, body.sdp);
+            break;
+          case "answer_sdp_received":
+            handleAnswer(body.from, body.sdp);
+            break;
+          case "ice_candidate_received":
+            handleRemoteIceCandidate(body.from, body.candidate);
+            break;
+          case "chat_message":
+            handleChatMessage(body);
+            break;
+          case "error":
+            console.error("Server error:", body.message);
+            toast.error(body.message);
+            break;
+          default:
+            console.log("Unknown message type:", type);
+            break;
+        }
+      } catch (error) {
+        console.error("Error parsing WebSocket message:", error);
       }
     };
+  }, [channelName, userName, navigate, reconnectAttempts]);
+
+  useEffect(() => {
+    connectWebSocket();
 
     return () => {
       if (ws.current) {
@@ -117,29 +155,43 @@ export default function VideoCall() {
         ws.current.close();
       }
       if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((track) => track.stop());
+        localStreamRef.current.getTracks().forEach((track) => {
+          track.stop();
+        });
       }
+      // Clean up peer connections
+      Object.values(peerConnectionsRef.current).forEach((pc) => {
+        pc.close();
+      });
     };
-  }, [channelName, userName, navigate]);
-
-  const sendWsMessage = useCallback((type, body) => {
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      ws.current.send(JSON.stringify({ type, body }));
-    }
-  }, []);
+  }, []); // Remove dependencies to prevent reconnection loops
 
   const setupDevice = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720 },
-        audio: { echoCancellation: true, noiseSuppression: true },
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30, max: 30 },
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
       });
 
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
+        // Ensure video plays
+        localVideoRef.current.onloadedmetadata = () => {
+          localVideoRef.current.play().catch(console.error);
+        };
       }
+
       localStreamRef.current = stream;
 
+      // Join after getting media
       sendWsMessage("join", { channelName, userName });
       toast.success("Camera and microphone connected");
     } catch (err) {
@@ -158,6 +210,20 @@ export default function VideoCall() {
       toast.success("Call started successfully!");
     }
 
+    // Clean up old connections for users no longer in the channel
+    Object.keys(peerConnectionsRef.current).forEach((userId) => {
+      if (!userNames.includes(userId)) {
+        peerConnectionsRef.current[userId].close();
+        delete peerConnectionsRef.current[userId];
+        setRemoteStreams((prev) => {
+          const updated = { ...prev };
+          delete updated[userId];
+          return updated;
+        });
+      }
+    });
+
+    // Setup connections for new users
     userNames.forEach((uid) => {
       if (uid === userName) return;
       if (!peerConnectionsRef.current[uid]) {
@@ -171,22 +237,28 @@ export default function VideoCall() {
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
       ],
     });
 
+    // Add local stream tracks
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
         pc.addTrack(track, localStreamRef.current);
       });
     }
 
+    // Handle incoming tracks
     pc.ontrack = (event) => {
+      console.log("Received remote track from:", remoteUserName);
+      const [remoteStream] = event.streams;
       setRemoteStreams((prev) => ({
         ...prev,
-        [remoteUserName]: event.streams[0],
+        [remoteUserName]: remoteStream,
       }));
     };
 
+    // Handle ICE candidates
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         sendWsMessage("send_ice_candidate", {
@@ -203,10 +275,28 @@ export default function VideoCall() {
       }
     };
 
+    // Handle connection state changes
     pc.onconnectionstatechange = () => {
       console.log(
         `Connection state with ${remoteUserName}:`,
         pc.connectionState
+      );
+
+      if (pc.connectionState === "failed") {
+        console.log(
+          `Connection failed with ${remoteUserName}, attempting to restart`
+        );
+        // Attempt ICE restart
+        if (isOfferer) {
+          setupPeerConnection(remoteUserName, true);
+        }
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log(
+        `ICE connection state with ${remoteUserName}:`,
+        pc.iceConnectionState
       );
     };
 
@@ -214,7 +304,10 @@ export default function VideoCall() {
 
     if (isOfferer) {
       try {
-        const offer = await pc.createOffer();
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true,
+        });
         await pc.setLocalDescription(offer);
         sendWsMessage("send_offer", {
           channelName,
@@ -230,9 +323,12 @@ export default function VideoCall() {
   };
 
   const handleOffer = async (from, offer) => {
+    console.log("Received offer from:", from);
+
     if (!peerConnectionsRef.current[from]) {
       await setupPeerConnection(from, false);
     }
+
     const pc = peerConnectionsRef.current[from];
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -251,8 +347,12 @@ export default function VideoCall() {
   };
 
   const handleAnswer = async (from, answer) => {
+    console.log("Received answer from:", from);
     const pc = peerConnectionsRef.current[from];
-    if (!pc) return;
+    if (!pc) {
+      console.error("No peer connection found for:", from);
+      return;
+    }
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(answer));
     } catch (err) {
@@ -262,7 +362,10 @@ export default function VideoCall() {
 
   const handleRemoteIceCandidate = async (from, candidate) => {
     const pc = peerConnectionsRef.current[from];
-    if (!pc) return;
+    if (!pc) {
+      console.error("No peer connection found for ICE candidate from:", from);
+      return;
+    }
     try {
       await pc.addIceCandidate(new RTCIceCandidate(candidate));
     } catch (err) {
@@ -300,8 +403,9 @@ export default function VideoCall() {
           audio: true,
         });
 
-        // Replace video track in all peer connections
         const videoTrack = screenStream.getVideoTracks()[0];
+
+        // Replace video track in all peer connections
         Object.values(peerConnectionsRef.current).forEach((pc) => {
           const sender = pc
             .getSenders()
@@ -334,11 +438,13 @@ export default function VideoCall() {
   const stopScreenShare = async () => {
     if (localStreamRef.current) {
       const videoTrack = localStreamRef.current.getVideoTracks()[0];
+
+      // Replace with camera track in all peer connections
       Object.values(peerConnectionsRef.current).forEach((pc) => {
         const sender = pc
           .getSenders()
           .find((s) => s.track && s.track.kind === "video");
-        if (sender) {
+        if (sender && videoTrack) {
           sender.replaceTrack(videoTrack);
         }
       });
@@ -355,12 +461,18 @@ export default function VideoCall() {
   const endCall = () => {
     if (window.confirm("Are you sure you want to end the call?")) {
       sendWsMessage("quit", { channelName, userName });
+
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => track.stop());
       }
+
+      // Close all peer connections
+      Object.values(peerConnectionsRef.current).forEach((pc) => {
+        pc.close();
+      });
+
       toast.success("Call ended");
 
-      // Navigate back based on user type
       const isDoctor = location.pathname.includes("/doctor/");
       if (isDoctor) {
         navigate("/doctor/consultants");
@@ -393,7 +505,13 @@ export default function VideoCall() {
   const ConnectionStatus = () => (
     <div className="text-center py-8">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-      <p className="text-gray-600">Waiting for other participants to join...</p>
+      <p className="text-gray-600">
+        {connectionStatus === "connecting"
+          ? "Connecting..."
+          : connectionStatus === "disconnected"
+          ? `Reconnecting... (${reconnectAttempts}/${maxReconnectAttempts})`
+          : "Waiting for other participants to join..."}
+      </p>
       <p className="text-gray-500 text-sm mt-2">
         Share the consultation link with other participants
       </p>
@@ -488,7 +606,12 @@ export default function VideoCall() {
                     playsInline
                     className="w-full h-full object-cover"
                     ref={(video) => {
-                      if (video) video.srcObject = stream;
+                      if (video && stream) {
+                        video.srcObject = stream;
+                        video.onloadedmetadata = () => {
+                          video.play().catch(console.error);
+                        };
+                      }
                     }}
                   />
                   <div className="absolute bottom-4 left-4 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
@@ -496,22 +619,6 @@ export default function VideoCall() {
                   </div>
                 </div>
               ))}
-
-              {/* Empty slots for more participants */}
-              {participants.length === 2 && (
-                <>
-                  <div className="bg-gray-700 rounded-lg flex items-center justify-center">
-                    <p className="text-gray-400">
-                      Waiting for more participants...
-                    </p>
-                  </div>
-                  <div className="bg-gray-700 rounded-lg flex items-center justify-center">
-                    <p className="text-gray-400">
-                      Waiting for more participants...
-                    </p>
-                  </div>
-                </>
-              )}
             </div>
           ) : (
             <ConnectionStatus />
@@ -547,7 +654,7 @@ export default function VideoCall() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728"
+                      d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 18.364M5.636 5.636l12.728 12.728"
                     />
                   )}
                 </svg>
@@ -612,7 +719,7 @@ export default function VideoCall() {
 
               <button
                 onClick={() => setShowChat(!showChat)}
-                className={`p-3 rounded-full transition-colors ${
+                className={`relative p-3 rounded-full transition-colors ${
                   showChat
                     ? "bg-blue-600 text-white hover:bg-blue-700"
                     : "bg-gray-700 text-white hover:bg-gray-600"
