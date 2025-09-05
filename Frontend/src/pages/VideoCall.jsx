@@ -605,40 +605,48 @@ export default function VideoCall() {
       toast.success("Call started successfully!");
     }
 
-    // Set up peer connections for new users
-    // The user with lexicographically smaller userName creates the offer
-    userNames.forEach((user) => {
-      if (user.userName === userName) return;
+    // Set up peer connections for new users only
+    const currentConnections = Object.keys(peerConnectionsRef.current);
+    const newUsers = userNames.filter(
+      (user) =>
+        user.userName !== userName &&
+        !currentConnections.includes(user.userName)
+    );
 
+    newUsers.forEach((user) => {
+      // The user with lexicographically smaller userName creates the offer
       const shouldCreateOffer = userName < user.userName;
       console.log(
-        `Should ${userName} create offer for ${user.userName}? ${shouldCreateOffer}`
+        `Setting up new connection: ${userName} -> ${user.userName}, shouldCreateOffer: ${shouldCreateOffer}`
       );
 
-      if (!peerConnectionsRef.current[user.userName]) {
-        // Small delay to ensure everything is ready
-        setTimeout(() => {
-          setupPeerConnection(user.userName, shouldCreateOffer);
-        }, 100);
-      }
+      // Add delay to ensure proper setup
+      setTimeout(() => {
+        setupPeerConnection(user.userName, shouldCreateOffer);
+      }, 200 * (newUsers.indexOf(user) + 1)); // Stagger connection attempts
     });
 
     // Clean up connections for users who left
-    Object.keys(peerConnectionsRef.current).forEach((pName) => {
-      if (!userNames.find((u) => u.userName === pName)) {
-        console.log(`Cleaning up connection for ${pName}`);
+    const currentUserNames = userNames.map((u) => u.userName);
+    currentConnections.forEach((connectionName) => {
+      if (!currentUserNames.includes(connectionName)) {
+        console.log(`Cleaning up connection for ${connectionName} (user left)`);
         try {
-          peerConnectionsRef.current[pName].close();
-        } catch (e) {}
-        delete peerConnectionsRef.current[pName];
-        delete pendingCandidatesRef.current[pName];
-        delete isInitiatorRef.current[pName];
+          peerConnectionsRef.current[connectionName].close();
+        } catch (e) {
+          console.error("Error closing peer connection:", e);
+        }
+        delete peerConnectionsRef.current[connectionName];
+        delete pendingCandidatesRef.current[connectionName];
+        delete isInitiatorRef.current[connectionName];
 
         setRemoteStreams((prev) => {
           const updated = { ...prev };
-          delete updated[pName];
+          delete updated[connectionName];
           return updated;
         });
+
+        toast.info(`${connectionName} left the call`);
       }
     });
   };
