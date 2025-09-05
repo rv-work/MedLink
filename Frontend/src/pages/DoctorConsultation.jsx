@@ -36,6 +36,11 @@ const PatientConsultation = () => {
       { urls: "stun:stun1.l.google.com:19302" },
       { urls: "stun:stun2.l.google.com:19302" },
       { urls: "stun:stun.services.mozilla.com" },
+      {
+        urls: "turn:turn.anyfirewall.com:443?transport=tcp", // public testing TURN
+        username: "webrtc",
+        credential: "webrtc",
+      },
     ],
     iceCandidatePoolSize: 10,
   };
