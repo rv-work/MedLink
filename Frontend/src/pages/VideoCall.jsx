@@ -316,26 +316,11 @@ export default function VideoCall() {
       localStreamRef.current = stream;
       console.log("Local stream obtained:", stream);
 
+      // Hide local video element (still needed for WebRTC)
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
-
-        // Improved video loading and play handling
-        const handleLoadedMetadata = async () => {
-          console.log("Local video metadata loaded");
-          setLocalVideoReady(true);
-          await safeVideoPlay(localVideoRef.current, "local");
-        };
-
-        localVideoRef.current.addEventListener(
-          "loadedmetadata",
-          handleLoadedMetadata,
-          { once: true }
-        );
-
-        // Handle play errors gracefully
-        localVideoRef.current.addEventListener("error", (error) => {
-          console.error("Local video error:", error);
-        });
+        localVideoRef.current.style.display = "none"; // Hide local video
+        setLocalVideoReady(true);
       }
 
       toast.success("Camera and microphone connected");
@@ -992,6 +977,15 @@ export default function VideoCall() {
 
   return (
     <div className="h-screen bg-gray-900 flex flex-col">
+      {/* Hidden Local Video - needed for WebRTC but not displayed */}
+      <video
+        ref={localVideoRef}
+        autoPlay
+        muted
+        playsInline
+        style={{ display: "none" }}
+      />
+
       {/* Header */}
       <div className="bg-gray-800 px-6 py-4 flex justify-between items-center">
         <div>
@@ -1142,232 +1136,200 @@ export default function VideoCall() {
 
       <div className="flex-1 flex">
         <div className="flex-1 relative">
-          {/* Video Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 h-full">
-            {/* Local Video - Always show */}
-            <div className="relative bg-gray-800 rounded-lg overflow-hidden">
-              <video
-                ref={localVideoRef}
-                autoPlay
-                muted
-                playsInline
-                className="w-full h-full object-cover cursor-pointer"
-                onClick={() => handleVideoClick(localVideoRef, "local")}
-                onError={(e) => {
-                  console.error("Local video error:", e);
-                }}
-              />
+          {/* Remote Video Display - Full Screen */}
+          <div className="h-full w-full">
+            {Object.keys(remoteStreams).length > 0 ? (
+              // Show only the first remote video (or all if you want multiple)
+              Object.entries(remoteStreams)
+                .slice(0, 1)
+                .map(([userId, stream]) => {
+                  const userLang =
+                    participants.find((p) => p.userName === userId)?.language ||
+                    "en";
 
-              {!localVideoReady && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-700">
-                  <div className="text-white text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-                    <p className="text-sm">Starting camera...</p>
-                  </div>
-                </div>
-              )}
+                  return (
+                    <div
+                      key={userId}
+                      className="relative h-full w-full bg-gray-800 overflow-hidden"
+                    >
+                      <video
+                        autoPlay
+                        playsInline
+                        muted={false}
+                        className="w-full h-full object-cover"
+                        ref={(video) => {
+                          if (video && stream) {
+                            console.log(`Setting stream for ${userId}:`, {
+                              streamId: stream.id,
+                              streamActive: stream.active,
+                              tracks: stream.getTracks().length,
+                            });
 
-              <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-sm">
-                You ({userName})
-              </div>
-              <div className="absolute top-4 left-4 bg-blue-600 text-white px-2 py-1 rounded text-xs font-semibold">
-                🗣️ {languages[selectedLanguage]?.split("(")[0]}
-              </div>
+                            // Force clear and reset
+                            video.srcObject = null;
 
-              <div className="absolute top-4 right-4 flex flex-col space-y-1">
-                {!isVideoEnabled && (
-                  <div className="bg-red-600 text-white px-2 py-1 rounded text-xs">
-                    📹 बंद/Off
-                  </div>
-                )}
-                {!isAudioEnabled && (
-                  <div className="bg-red-600 text-white px-2 py-1 rounded text-xs">
-                    🔇 मूक/Mute
-                  </div>
-                )}
-                {isListening && (
-                  <div className="bg-green-600 text-white px-2 py-1 rounded text-xs animate-pulse">
-                    🎤 सुन रहा है/Listening
-                  </div>
-                )}
-              </div>
-            </div>
-            {/* Remote Videos */}
-            // Remote Videos section को इससे replace करें:
-            {Object.entries(remoteStreams).map(([userId, stream]) => {
-              const userLang =
-                participants.find((p) => p.userName === userId)?.language ||
-                "en";
+                            // Use requestAnimationFrame for better timing
+                            requestAnimationFrame(() => {
+                              video.srcObject = stream;
 
-              return (
-                <div
-                  key={userId}
-                  className="relative bg-gray-800 rounded-lg overflow-hidden"
-                >
-                  <video
-                    autoPlay
-                    playsInline
-                    muted={false} // Remote video को mute नहीं करना चाहिए
-                    className="w-full h-full object-cover"
-                    ref={(video) => {
-                      if (video && stream) {
-                        console.log(`Setting stream for ${userId}:`, {
-                          streamId: stream.id,
-                          streamActive: stream.active,
-                          tracks: stream.getTracks().length,
-                        });
+                              // Force load and play
+                              video.load();
 
-                        // Force clear and reset
-                        video.srcObject = null;
+                              const attemptPlay = async () => {
+                                try {
+                                  if (video.readyState >= 2) {
+                                    // HAVE_CURRENT_DATA
+                                    await video.play();
+                                    console.log(
+                                      `✅ Remote video playing for ${userId}`
+                                    );
+                                  } else {
+                                    // Wait for loadeddata event
+                                    video.addEventListener(
+                                      "loadeddata",
+                                      async () => {
+                                        try {
+                                          await video.play();
+                                          console.log(
+                                            `✅ Remote video playing for ${userId} after loadeddata`
+                                          );
+                                        } catch (error) {
+                                          console.error(
+                                            `❌ Play failed for ${userId}:`,
+                                            error
+                                          );
+                                        }
+                                      },
+                                      { once: true }
+                                    );
+                                  }
+                                } catch (error) {
+                                  console.error(
+                                    `❌ Initial play failed for ${userId}:`,
+                                    error
+                                  );
+                                  // Retry after delay
+                                  setTimeout(attemptPlay, 1000);
+                                }
+                              };
 
-                        // Use requestAnimationFrame for better timing
-                        requestAnimationFrame(() => {
-                          video.srcObject = stream;
-
-                          // Force load and play
-                          video.load();
-
-                          const attemptPlay = async () => {
-                            try {
-                              if (video.readyState >= 2) {
-                                // HAVE_CURRENT_DATA
-                                await video.play();
-                                console.log(
-                                  `✅ Remote video playing for ${userId}`
-                                );
-                              } else {
-                                // Wait for loadeddata event
-                                video.addEventListener(
-                                  "loadeddata",
-                                  async () => {
-                                    try {
-                                      await video.play();
-                                      console.log(
-                                        `✅ Remote video playing for ${userId} after loadeddata`
-                                      );
-                                    } catch (error) {
-                                      console.error(
-                                        `❌ Play failed for ${userId}:`,
-                                        error
-                                      );
-                                    }
-                                  },
-                                  { once: true }
-                                );
-                              }
-                            } catch (error) {
-                              console.error(
-                                `❌ Initial play failed for ${userId}:`,
-                                error
-                              );
-                              // Retry after delay
-                              setTimeout(attemptPlay, 1000);
+                              attemptPlay();
+                            });
+                          }
+                        }}
+                        onLoadStart={(e) => {
+                          console.log(
+                            `🔄 Remote video load started for ${userId}`
+                          );
+                        }}
+                        onLoadedMetadata={(e) => {
+                          console.log(
+                            `📊 Remote video metadata loaded for ${userId}:`,
+                            {
+                              videoWidth: e.target.videoWidth,
+                              videoHeight: e.target.videoHeight,
+                              duration: e.target.duration,
                             }
-                          };
+                          );
+                        }}
+                        onLoadedData={(e) => {
+                          console.log(
+                            `📡 Remote video data loaded for ${userId}`
+                          );
+                        }}
+                        onCanPlay={(e) => {
+                          console.log(`▶️ Remote video can play for ${userId}`);
+                          if (e.target.paused) {
+                            e.target.play().catch(console.error);
+                          }
+                        }}
+                        onPlay={(e) => {
+                          console.log(
+                            `🎥 Remote video started playing for ${userId}`
+                          );
+                        }}
+                        onError={(e) => {
+                          console.error(
+                            `❌ Remote video error for ${userId}:`,
+                            e.target.error
+                          );
+                          // Try to recover from error
+                          setTimeout(() => {
+                            if (e.target.srcObject) {
+                              e.target.load();
+                              e.target.play().catch(console.error);
+                            }
+                          }, 2000);
+                        }}
+                        onStalled={(e) => {
+                          console.warn(`⚠️ Remote video stalled for ${userId}`);
+                        }}
+                        onWaiting={(e) => {
+                          console.warn(`⏳ Remote video waiting for ${userId}`);
+                        }}
+                      />
 
-                          attemptPlay();
-                        });
-                      }
-                    }}
-                    onLoadStart={(e) => {
-                      console.log(`🔄 Remote video load started for ${userId}`);
-                    }}
-                    onLoadedMetadata={(e) => {
-                      console.log(
-                        `📊 Remote video metadata loaded for ${userId}:`,
-                        {
-                          videoWidth: e.target.videoWidth,
-                          videoHeight: e.target.videoHeight,
-                          duration: e.target.duration,
-                        }
-                      );
-                    }}
-                    onLoadedData={(e) => {
-                      console.log(`📡 Remote video data loaded for ${userId}`);
-                    }}
-                    onCanPlay={(e) => {
-                      console.log(`▶️ Remote video can play for ${userId}`);
-                      if (e.target.paused) {
-                        e.target.play().catch(console.error);
-                      }
-                    }}
-                    onPlay={(e) => {
-                      console.log(
-                        `🎥 Remote video started playing for ${userId}`
-                      );
-                    }}
-                    onError={(e) => {
-                      console.error(
-                        `❌ Remote video error for ${userId}:`,
-                        e.target.error
-                      );
-
-                      // Try to recover from error
-                      setTimeout(() => {
-                        if (e.target.srcObject) {
-                          e.target.load();
-                          e.target.play().catch(console.error);
-                        }
-                      }, 2000);
-                    }}
-                    onStalled={(e) => {
-                      console.warn(`⚠️ Remote video stalled for ${userId}`);
-                    }}
-                    onWaiting={(e) => {
-                      console.warn(`⏳ Remote video waiting for ${userId}`);
-                    }}
-                  />
-
-                  {/* Video status indicator */}
-                  <div className="absolute top-4 right-4 flex flex-col space-y-1">
-                    {stream && (
-                      <div className="bg-blue-600 text-white px-2 py-1 rounded text-xs">
-                        📡 Stream: {stream.active ? "Active" : "Inactive"}
+                      {/* Video status indicators */}
+                      <div className="absolute top-4 right-4 flex flex-col space-y-1">
+                        {stream && (
+                          <div className="bg-blue-600 text-white px-2 py-1 rounded text-xs">
+                            📡 Stream: {stream.active ? "Active" : "Inactive"}
+                          </div>
+                        )}
+                        {stream && stream.getTracks().length > 0 && (
+                          <div className="bg-green-600 text-white px-2 py-1 rounded text-xs">
+                            🎬 Tracks: {stream.getVideoTracks().length}V/
+                            {stream.getAudioTracks().length}A
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {stream && stream.getTracks().length > 0 && (
-                      <div className="bg-green-600 text-white px-2 py-1 rounded text-xs">
-                        🎬 Tracks: {stream.getVideoTracks().length}V/
-                        {stream.getAudioTracks().length}A
-                      </div>
-                    )}
-                  </div>
 
-                  <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-sm">
-                    {userId}
-                  </div>
-                  <div className="absolute top-4 left-4 bg-purple-600 text-white px-2 py-1 rounded text-xs font-semibold">
-                    🗣️ {languages[userLang]?.split("(")[0] || "Unknown"}
-                  </div>
-                  {selectedLanguage !== userLang && (
-                    <div className="absolute bottom-4 right-4">
-                      <div className="bg-green-600 text-white px-2 py-1 rounded text-xs">
-                        🔄 अनुवाद/Translate
+                      {/* User info overlay */}
+                      <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white px-3 py-2 rounded text-lg">
+                        {userId}
                       </div>
+                      <div className="absolute top-4 left-4 bg-purple-600 text-white px-3 py-2 rounded text-sm font-semibold">
+                        🗣️ {languages[userLang]?.split("(")[0] || "Unknown"}
+                      </div>
+                      {selectedLanguage !== userLang && (
+                        <div className="absolute bottom-4 right-4">
+                          <div className="bg-green-600 text-white px-3 py-2 rounded text-sm">
+                            🔄 अनुवाद/Translate
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-            {/* Waiting message when no remote users */}
-            {Object.keys(remoteStreams).length === 0 &&
-              participants.length === 1 && (
-                <div className="relative bg-gray-800 rounded-lg overflow-hidden flex items-center justify-center">
-                  <div className="text-center text-white">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-300">
-                      अन्य प्रतिभागियों का इंतजार / Waiting for other
-                      participants...
+                  );
+                })
+            ) : (
+              // Waiting message when no remote users
+              <div className="h-full w-full bg-gray-800 flex items-center justify-center">
+                <div className="text-center text-white">
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-6"></div>
+                  <p className="text-xl text-gray-300 mb-2">
+                    अन्य प्रतिभागियों का इंतजार
+                  </p>
+                  <p className="text-lg text-gray-300 mb-4">
+                    Waiting for other participants...
+                  </p>
+                  <p className="text-gray-500 text-base">
+                    कंसल्टेशन लिंक साझा करें / Share the consultation link
+                  </p>
+                  <div className="mt-6 text-sm text-gray-400">
+                    <p>
+                      Connected as:{" "}
+                      <span className="text-blue-400">{userName}</span>
                     </p>
-                    <p className="text-gray-500 text-sm mt-2">
-                      कंसल्टेशन लिंक साझा करें / Share the consultation link
+                    <p>
+                      Room: <span className="text-blue-400">{channelName}</span>
                     </p>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
           </div>
 
-          {/* Controls */}
+          {/* Controls - Fixed at bottom */}
           <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
             <div className="flex items-center space-x-3 bg-black bg-opacity-75 rounded-full px-6 py-3">
               <button
@@ -1561,6 +1523,25 @@ export default function VideoCall() {
                 ))}
               </div>
             </div>
+          </div>
+
+          {/* Status indicators overlay */}
+          <div className="absolute top-4 left-4 flex flex-col space-y-2">
+            {!isVideoEnabled && (
+              <div className="bg-red-600 text-white px-3 py-2 rounded text-sm font-medium">
+                📹 Camera Off
+              </div>
+            )}
+            {!isAudioEnabled && (
+              <div className="bg-red-600 text-white px-3 py-2 rounded text-sm font-medium">
+                🔇 Muted
+              </div>
+            )}
+            {isListening && (
+              <div className="bg-green-600 text-white px-3 py-2 rounded text-sm font-medium animate-pulse">
+                🎤 Listening...
+              </div>
+            )}
           </div>
 
           {/* Translation Settings Modal */}

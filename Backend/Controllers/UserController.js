@@ -11,6 +11,7 @@ import twilio from "twilio";
 
 
 import dotenv from 'dotenv';
+import { handleApiError } from "@pinecone-database/pinecone/dist/errors/handling.js";
 
 dotenv.config();
 
@@ -1298,12 +1299,17 @@ export const getCriticalData = async (req, res) => {
   }
 };
 
+import twilio from "twilio";
+import EmergencyContact from "../models/EmergencyContact.js";
 
 export const PleaseHelp = async (req, res) => {
   try {
-    const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-    const twilioWhatsApp = process.env.TWILIO_WHATSAPP_NUMBER;
-    const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
+    const client = twilio(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    );
+    const twilioWhatsApp = process.env.TWILIO_WHATSAPP_NUMBER; // must be like "whatsapp:+14155238886"
+    const twilioPhone = process.env.TWILIO_PHONE_NUMBER; // must be a verified Twilio phone number
     const user = req.user;
     const { latitude, longitude, timestamp } = req.body;
 
@@ -1339,8 +1345,12 @@ This is an automatic accident detection alert. Please check on them immediately 
 
     const results = [];
 
+    // normalize number => +91XXXXXXXXXX (remove spaces/dashes)
+    const normalizePhone = (phone) =>
+      phone.replace(/\D/g, "").replace(/^91/, "+91").replace(/^0/, "+91");
+
     for (const contact of contacts) {
-      const phone = contact.phone;
+      const phone = normalizePhone(contact.phone);
 
       // ✅ SMS
       try {
@@ -1349,21 +1359,43 @@ This is an automatic accident detection alert. Please check on them immediately 
           from: twilioPhone,
           to: phone,
         });
-        results.push({ contact: phone, type: "SMS", status: "sent", sid: sms.sid });
+        results.push({
+          contact: phone,
+          type: "SMS",
+          status: "sent",
+          sid: sms.sid,
+        });
       } catch (error) {
-        results.push({ contact: phone, type: "SMS", status: "failed", error: error.message });
+        results.push({
+          contact: phone,
+          type: "SMS",
+          status: "failed",
+          error: error.message,
+        });
       }
 
       // ✅ WhatsApp
       try {
         const whatsapp = await client.messages.create({
           body: emergencyMessage,
-          from: `${twilioWhatsApp}`,
+          from: twilioWhatsApp.startsWith("whatsapp:")
+            ? twilioWhatsApp
+            : `whatsapp:${twilioWhatsApp}`,
           to: `whatsapp:${phone}`,
         });
-        results.push({ contact: phone, type: "WhatsApp", status: "sent", sid: whatsapp.sid });
+        results.push({
+          contact: phone,
+          type: "WhatsApp",
+          status: "sent",
+          sid: whatsapp.sid,
+        });
       } catch (error) {
-        results.push({ contact: phone, type: "WhatsApp", status: "failed", error: error.message });
+        results.push({
+          contact: phone,
+          type: "WhatsApp",
+          status: "failed",
+          error: error.message,
+        });
       }
 
       // ✅ Voice Call
@@ -1372,7 +1404,9 @@ This is an automatic accident detection alert. Please check on them immediately 
           twiml: `<Response>
             <Say voice="alice" rate="slow">
               Emergency Alert! ${user.name || "A user"} may need immediate assistance.
-              They were detected in a possible accident at ${new Date().toLocaleString()}.
+              They were detected in a possible accident at ${new Date(
+                timestamp || Date.now()
+              ).toLocaleString()}.
               Please check on them immediately. 
               Their location coordinates are ${latitude}, ${longitude}.
               You can find them on Google Maps by searching these coordinates.
@@ -1382,9 +1416,19 @@ This is an automatic accident detection alert. Please check on them immediately 
           from: twilioPhone,
           to: phone,
         });
-        results.push({ contact: phone, type: "Call", status: "initiated", sid: call.sid });
+        results.push({
+          contact: phone,
+          type: "Call",
+          status: "initiated",
+          sid: call.sid,
+        });
       } catch (error) {
-        results.push({ contact: phone, type: "Call", status: "failed", error: error.message });
+        results.push({
+          contact: phone,
+          type: "Call",
+          status: "failed",
+          error: error.message,
+        });
       }
     }
 
