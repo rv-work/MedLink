@@ -26,7 +26,7 @@ const DoctorAllTreatments = () => {
       }
 
       const response = await axios.get(
-        "https://medlink-bh5c.onrender.com/api/doctor/get-treatments",
+        "http://localhost:5000/api/doctor/get-treatments",
         {
           params,
           withCredentials: true,

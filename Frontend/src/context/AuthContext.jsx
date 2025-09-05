@@ -12,13 +12,10 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const fetchLoggedInStatus = async () => {
       try {
-        const response = await fetch(
-          "https://medlink-bh5c.onrender.com/api/auth/check",
-          {
-            method: "GET",
-            credentials: "include",
-          }
-        );
+        const response = await fetch("http://localhost:5000/api/auth/check", {
+          method: "GET",
+          credentials: "include",
+        });
 
         if (response.ok) {
           const data = await response.json();

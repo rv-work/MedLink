@@ -164,4 +164,57 @@ const uploadEmergency = multer({
   },
 });
 
+
+
+
+// Regular medicine photo storage
+export const medicineStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: 'medicines',
+    allowed_formats: ['jpg', 'jpeg', 'png'],
+    public_id: (req, file) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      return 'medicine-' + uniqueSuffix;
+    }
+  }
+});
+// Updated file filter to handle both image MIME types and octet-stream from ZIP files
+const fileFilterPhotoMed = (req, file, cb) => {
+  console.log('File received:', file.originalname, 'MIME:', file.mimetype);
+  
+  // Check if it's an image by MIME type OR by file extension (for ZIP extracted files)
+  const isImage = file.mimetype.startsWith('image/') || 
+                  file.mimetype === 'application/octet-stream';
+  
+  const hasImageExtension = /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(file.originalname);
+  
+  if (isImage && hasImageExtension) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only image files are allowed'), false);
+  }
+};
+
+
+export const uploadPhotoFileMed = multer({
+  storage: medicineStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
+  fileFilter: fileFilterPhotoMed
+});
+
+// Bulk photos upload for bulk add medicines
+export const uploadBulkFiles = multer({
+  storage: medicineStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB per file
+    files: 50 // Maximum 50 files
+  },
+  fileFilter: fileFilterPhotoMed
+});
+
+
+
 export default uploadEmergency;

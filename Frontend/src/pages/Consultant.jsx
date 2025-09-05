@@ -26,7 +26,7 @@ const Consultant = () => {
   const fetchActiveConsultation = async () => {
     try {
       const response = await axios.get(
-        "https://medlink-bh5c.onrender.com/api/consultation/active",
+        "http://localhost:5000/api/consultation/active",
         { withCredentials: true }
       );
 
@@ -68,7 +68,7 @@ const Consultant = () => {
   const handleCompleteConsultation = async () => {
     try {
       const response = await axios.put(
-        `https://medlink-bh5c.onrender.com/api/consultation/status/${activeConsultation._id}`,
+        `http://localhost:5000/api/consultation/status/${activeConsultation._id}`,
         { status: "completed", notes },
         { withCredentials: true }
       );
@@ -76,8 +76,7 @@ const Consultant = () => {
       if (response.data.success) {
         setMessage("Consultation completed successfully!");
         setTimeout(() => {
-          window.location.href =
-            "https://medlink-bh5c.onrender.com/consultant-requests";
+          window.location.href = "http://localhost:5000/consultant-requests";
         }, 2000);
       }
     } catch (error) {
@@ -113,8 +112,7 @@ const Consultant = () => {
         </p>
         <button
           onClick={() =>
-            (window.location.href =
-              "https://medlink-bh5c.onrender.com/consultant-requests")
+            (window.location.href = "http://localhost:5000/consultant-requests")
           }
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
         >

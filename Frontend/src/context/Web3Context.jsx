@@ -22,7 +22,7 @@ export const Web3Provider = ({ children }) => {
   //       const msg = "Please sign this message to verify ownership of your wallet.";
   //       const signature = await signer.signMessage(msg);
 
-  //       const res = await fetch('https://medlink-bh5c.onrender.com/api/auth/metamask', {
+  //       const res = await fetch('http://localhost:5000/api/auth/metamask', {
   //         method: 'POST',
   //         headers: { 'Content-Type': 'application/json' },
   //         credentials: 'include',
@@ -65,15 +65,12 @@ export const Web3Provider = ({ children }) => {
 
         const signature = await signer.signMessage(msg);
 
-        const res = await fetch(
-          "https://medlink-bh5c.onrender.com/api/auth/metamask",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ address, signature }),
-          }
-        );
+        const res = await fetch("http://localhost:5000/api/auth/metamask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ address, signature }),
+        });
 
         const data = await res.json();
 

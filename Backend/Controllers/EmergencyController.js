@@ -173,7 +173,7 @@ export const sendEmergencyAlert = async (req, res) => {
 
     await emergency.save();
 
-    const baseUrl = "https://medlink-bh5c.onrender.com";
+    const baseUrl = "http://localhost:5000";
     const approvalLink = `${baseUrl}/api/emergency/approve/${emergency._id}`;
     const rejectionLink = `${baseUrl}/api/emergency/reject/${emergency._id}`;
     const situationText = situation.replace("_", " ").toUpperCase();
@@ -468,7 +468,7 @@ export const rejectEmergency = async (req, res) => {
 //         });
 
 //         const response = await axios.post(
-//           "https://medlink-bh5c.onrender.com/api/verify-face",
+//           "http://localhost:5000/api/verify-face",
 //           form,
 //           { headers: form.getHeaders() }
 //         );

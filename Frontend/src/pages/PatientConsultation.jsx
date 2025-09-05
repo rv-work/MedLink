@@ -65,7 +65,7 @@ const PatientConsultation = () => {
   const fetchConsultation = async () => {
     try {
       const response = await axios.get(
-        `https://medlink-bh5c.onrender.com/api/consultation/${consultationId}`,
+        `http://localhost:5000/api/consultation/${consultationId}`,
         { withCredentials: true }
       );
 
@@ -164,7 +164,7 @@ const PatientConsultation = () => {
         localVideoRef.current.srcObject = stream;
       }
 
-      const socket = io("https://medlink-bh5c.onrender.com", {
+      const socket = io("http://localhost:5000", {
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionAttempts: 5,

@@ -39,7 +39,7 @@ const EnableEmergency = () => {
       formData.append("face", imageFile);
 
       const response = await fetch(
-        "https://medlink-bh5c.onrender.com/api/emergency/add-face",
+        "http://localhost:5000/api/emergency/add-face",
         { method: "POST", body: formData, credentials: "include" }
       );
       const data = await response.json();

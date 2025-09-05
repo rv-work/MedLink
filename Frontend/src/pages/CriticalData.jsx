@@ -28,7 +28,7 @@ const CriticalData = () => {
       try {
         setLoading(true);
         const response = await fetch(
-          `https://medlink-bh5c.onrender.com/api/user/${userId}`
+          `http://localhost:5000/api/user/${userId}`
         );
         const result = await response.json();
 

@@ -38,7 +38,7 @@ const RequestConsultant = () => {
 
     try {
       const response = await axios.post(
-        "https://medlink-bh5c.onrender.com/api/consultation/create",
+        "http://localhost:5000/api/consultation/create",
         formData,
         {
           withCredentials: true,

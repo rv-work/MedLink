@@ -14,6 +14,7 @@ import medChatRouter from "./Routes/MedChatRoutes.js";
 import treatMentRouter from "./Routes/TreatMentRoutes.js";
 import doctorRouter from "./Routes/DocterRoutes.js";
 import ConsultationRoutes from "./Routes/ConsultationRoutes.js";
+import ClinicRouter from "./Routes/ClinicRoutes.js";
 
 dotenv.config();
 
@@ -62,6 +63,7 @@ app.use("/api/emergency", emergencyRouter);
 app.use("/api/chat", medChatRouter);
 app.use("/api/treatment", treatMentRouter);
 app.use("/api/doctor", doctorRouter);
+app.use("/api/clinic", ClinicRouter);
 app.use('/api/consultation', ConsultationRoutes);
 
 app.get("/", (req, res) => {

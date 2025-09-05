@@ -228,14 +228,11 @@ const MedicalSignup = () => {
 
       console.log("Sending form data:", Object.fromEntries(formDataToSend));
 
-      const res = await fetch(
-        "https://medlink-bh5c.onrender.com/api/auth/signup",
-        {
-          method: "POST",
-          credentials: "include",
-          body: formDataToSend,
-        }
-      );
+      const res = await fetch("http://localhost:5000/api/auth/signup", {
+        method: "POST",
+        credentials: "include",
+        body: formDataToSend,
+      });
 
       const data = await res.json();
 

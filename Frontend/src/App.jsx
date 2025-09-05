@@ -26,6 +26,11 @@ import ConsultantRequests from "./pages/ConsultantRequests";
 import WaitingForDoctor from "./pages/WaitingForDoctor";
 import PatientConsultation from "./pages/PatientConsultation";
 import DoctorConsultation from "./pages/DoctorConsultation";
+import SellerRegister from "./pages/RegisterClinic";
+import ManageMedicines from "./pages/ManageMedicines";
+import AddMedicine from "./pages/AddMedicine";
+import SearchMedicines from "./pages/SearchMedicines";
+import PeerVideoCall from "./pages/VideoCall";
 
 function App() {
   return (
@@ -70,10 +75,13 @@ function App() {
 
         {/* Doctor Consultation Routes */}
         <Route path="/doctor/consultants" element={<ConsultantRequests />} />
-        <Route
-          path="/doctor/consultation/:consultationId"
-          element={<DoctorConsultation />}
-        />
+
+        <Route path="/clinic/register" element={<SellerRegister />} />
+        <Route path="/clinic/my-medicines" element={<ManageMedicines />} />
+        <Route path="/clinic/add-medicine" element={<AddMedicine />} />
+        <Route path="/clinic/medicine/search" element={<SearchMedicines />} />
+
+        <Route path="/clinic" element={<PeerVideoCall />} />
       </Routes>
       <Footer />
     </>

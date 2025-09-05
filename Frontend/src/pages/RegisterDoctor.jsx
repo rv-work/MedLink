@@ -15,7 +15,7 @@ const RegisterDoctor = () => {
   const checkMedId = async () => {
     try {
       const { data } = await axios.post(
-        "https://medlink-bh5c.onrender.com/api/doctor/check-medid",
+        "http://localhost:5000/api/doctor/check-medid",
         {
           doctorMedlinkId,
         }
@@ -35,7 +35,7 @@ const RegisterDoctor = () => {
 
     try {
       const { data } = await axios.post(
-        "https://medlink-bh5c.onrender.com/api/doctor/register",
+        "http://localhost:5000/api/doctor/register",
         {
           ...form,
           doctorMedlinkId,
