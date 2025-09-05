@@ -18,7 +18,7 @@ const ManageMedicines = () => {
   const fetchMedicines = async () => {
     try {
       const response = await fetch(
-        "http://localhost:5000/api/clinic/my-medicines",
+        "https://medlink-bh5c.onrender.com/api/clinic/my-medicines",
         {
           method: "GET",
           credentials: "include", // include cookies if needed
@@ -54,7 +54,7 @@ const ManageMedicines = () => {
   const handleUpdate = async (medicineId) => {
     try {
       const response = await fetch(
-        `http://localhost:5000/api/clinic/update-medicine/${medicineId}`,
+        `https://medlink-bh5c.onrender.com/api/clinic/update-medicine/${medicineId}`,
         {
           method: "PUT",
           credentials: "include",

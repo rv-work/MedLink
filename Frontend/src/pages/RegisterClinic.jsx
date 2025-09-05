@@ -65,7 +65,7 @@ const SellerRegister = () => {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/clinic/register",
+        "https://medlink-bh5c.onrender.com/api/clinic/register",
         {
           method: "POST",
           headers: {

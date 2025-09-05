@@ -284,7 +284,7 @@ const AddMedicine = () => {
       }
 
       const response = await fetch(
-        "http://localhost:5000/api/clinic/add-medicine",
+        "https://medlink-bh5c.onrender.com/api/clinic/add-medicine",
         {
           method: "POST",
           body: formDataToSend,
@@ -464,7 +464,7 @@ const AddMedicine = () => {
       });
 
       const response = await fetch(
-        "http://localhost:5000/api/clinic/bulk-add-medicines",
+        "https://medlink-bh5c.onrender.com/api/clinic/bulk-add-medicines",
         {
           method: "POST",
           body: formData,

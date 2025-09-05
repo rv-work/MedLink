@@ -1,53 +1,67 @@
-import { ConsultationRequest } from "../Models/ConsultationRequest.js"
+import { ConsultationRequest } from '../Models/ConsultationRequest.js';
 import { v4 as uuidv4 } from 'uuid';
 
-// Create consultation request
+// Create new consultation request
 export const createConsultationRequest = async (req, res) => {
   try {
-    const { problemTitle, problemDescription, consultationType, urgency } = req.body;
-    const patientId = req.user._id; // From auth middleware
+    const { problemTitle, problemDescription, consultationType, urgency, scheduledTime } = req.body;
+    const patientId = req.user._id;
 
-    const consultationRequest = new ConsultationRequest({
+    const consultation = new ConsultationRequest({
       patient: patientId,
       problemTitle,
       problemDescription,
       consultationType,
-      urgency
+      urgency,
+      scheduledTime: scheduledTime || null
     });
 
-    await consultationRequest.save();
-    await consultationRequest.populate('patient', 'name email');
+    await consultation.save();
+    await consultation.populate('patient', 'name email profilePicture');
 
     res.status(201).json({
       success: true,
       message: 'Consultation request created successfully',
-      data: consultationRequest
+      consultation
     });
   } catch (error) {
+    console.error('Error creating consultation:', error);
     res.status(500).json({
       success: false,
-      message: 'Error creating consultation request',
-      error: error.message
+      message: 'Failed to create consultation request'
     });
   }
 };
 
-// Get all pending requests for doctors
-export const getPendingRequests = async (req, res) => {
+// Get consultation requests for doctors
+export const getConsultationRequests = async (req, res) => {
   try {
-    const requests = await ConsultationRequest.find({ status: 'pending' })
-      .populate('patient', 'name email profilePicture')
-      .sort({ createdAt: -1 });
+    const { consultationType, urgency, status = 'pending' } = req.query;
+    const doctorId = req.user._id;
+
+    // Build filter
+    let filter = { status };
+    if (consultationType && consultationType !== 'All') {
+      filter.consultationType = consultationType;
+    }
+    if (urgency) {
+      filter.urgency = urgency;
+    }
+
+    const consultations = await ConsultationRequest.find(filter)
+      .populate('patient', 'name email profilePicture phone')
+      .populate('doctor', 'name email profilePicture')
+      .sort({ createdAt: -1, urgency: -1 });
 
     res.status(200).json({
       success: true,
-      data: requests
+      consultations
     });
   } catch (error) {
+    console.error('Error fetching consultations:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching requests',
-      error: error.message
+      message: 'Failed to fetch consultation requests'
     });
   }
 };
@@ -55,170 +69,24 @@ export const getPendingRequests = async (req, res) => {
 // Accept consultation request
 export const acceptConsultationRequest = async (req, res) => {
   try {
-    const { requestId } = req.params;
+    const consultationId = req.params.id;
     const doctorId = req.user._id;
+    const { scheduledTime } = req.body;
 
-    const meetingRoom = uuidv4(); // Generate unique room ID
+    // Generate unique meeting room ID
+    const meetingRoom = uuidv4();
 
-    const request = await ConsultationRequest.findByIdAndUpdate(
-      requestId,
+    const consultation = await ConsultationRequest.findByIdAndUpdate(
+      consultationId,
       {
         doctor: doctorId,
         status: 'accepted',
-        meetingRoom,
-        scheduledTime: new Date()
+        scheduledTime: scheduledTime || new Date(),
+        meetingRoom
       },
       { new: true }
-    ).populate('patient', 'name email')
-     .populate('doctor', 'name email');
-
-    if (!request) {
-      return res.status(404).json({
-        success: false,
-        message: 'Consultation request not found'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Request accepted successfully',
-      data: request
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error accepting request',
-      error: error.message
-    });
-  }
-};
-
-// Get user's consultation requests
-export const getUserConsultationRequests = async (req, res) => {
-  try {
-    const userId = req.user._id;
-
-    const requests = await ConsultationRequest.find({
-      $or: [
-        { patient: userId },
-        { doctor: userId }
-      ]
-    })
-    .populate('patient', 'name email')
-    .populate('doctor', 'name email')
-    .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      data: requests
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching consultation requests',
-      error: error.message
-    });
-  }
-};
-
-// Get active consultation (accepted and in-progress)
-export const getActiveConsultation = async (req, res) => {
-  try {
-    const userId = req.user._id;
-
-    const activeConsultation = await ConsultationRequest.findOne({
-      $or: [
-        { patient: userId },
-        { doctor: userId }
-      ],
-      status: { $in: ['accepted', 'in-progress'] }
-    })
-    .populate('patient', 'name email')
-    .populate('doctor', 'name email');
-
-    res.status(200).json({
-      success: true,
-      data: activeConsultation
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching active consultation',
-      error: error.message
-    });
-  }
-};
-
-// Update consultation status
-export const updateConsultationStatus = async (req, res) => {
-  try {
-    const { requestId } = req.params;
-    const { status, notes } = req.body;
-
-    const request = await ConsultationRequest.findByIdAndUpdate(
-      requestId,
-      { status, notes },
-      { new: true }
-    );
-
-    res.status(200).json({
-      success: true,
-      message: 'Status updated successfully',
-      data: request
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error updating status',
-      error: error.message
-    });
-  }
-};
-
-
-// Controllers/ConsultationController.js - Add these new methods
-
-// Get patient's pending request
-export const getPatientPendingRequest = async (req, res) => {
-  try {
-    const patientId = req.user._id;
-
-    const request = await ConsultationRequest.findOne({
-      patient: patientId,
-      status: { $in: ['pending', 'accepted'] }
-    })
-    .populate('patient', 'name email')
-    .populate('doctor', 'name email')
-    .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      data: request
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching pending request',
-      error: error.message
-    });
-  }
-};
-
-// Get specific consultation by ID
-export const getConsultationById = async (req, res) => {
-  try {
-    const { consultationId } = req.params;
-    const userId = req.user._id;
-
-    const consultation = await ConsultationRequest.findOne({
-      _id: consultationId,
-      $or: [
-        { patient: userId },
-        { doctor: userId }
-      ]
-    })
-    .populate('patient', 'name email')
-    .populate('doctor', 'name email');
+    ).populate('patient', 'name email profilePicture phone')
+     .populate('doctor', 'name email profilePicture');
 
     if (!consultation) {
       return res.status(404).json({
@@ -229,50 +97,136 @@ export const getConsultationById = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: consultation
+      message: 'Consultation accepted successfully',
+      consultation
     });
   } catch (error) {
+    console.error('Error accepting consultation:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching consultation',
-      error: error.message
+      message: 'Failed to accept consultation'
     });
   }
 };
 
-// Cancel consultation request
-export const cancelConsultationRequest = async (req, res) => {
+// Get consultation by ID
+export const getConsultationById = async (req, res) => {
   try {
-    const { requestId } = req.params;
+    const consultationId = req.params.id;
     const userId = req.user._id;
 
-    const request = await ConsultationRequest.findOneAndUpdate(
-      { 
-        _id: requestId, 
-        patient: userId,
-        status: { $in: ['pending', 'accepted'] }
-      },
-      { status: 'cancelled' },
-      { new: true }
-    );
+    const consultation = await ConsultationRequest.findById(consultationId)
+      .populate('patient', 'name email profilePicture phone')
+      .populate('doctor', 'name email profilePicture specialization');
 
-    if (!request) {
+    if (!consultation) {
       return res.status(404).json({
         success: false,
-        message: 'Request not found or cannot be cancelled'
+        message: 'Consultation not found'
       });
     }
 
+   
+
     res.status(200).json({
       success: true,
-      message: 'Request cancelled successfully',
-      data: request
+      consultation
     });
   } catch (error) {
+    console.error('Error fetching consultation:', error);
     res.status(500).json({
       success: false,
-      message: 'Error cancelling request',
-      error: error.message
+      message: 'Failed to fetch consultation'
+    });
+  }
+};
+
+// Update consultation status
+export const updateConsultationStatus = async (req, res) => {
+  try {
+    const consultationId = req.params.id;
+    const { status, notes } = req.body;
+    const userId = req.user._id;
+
+    const consultation = await ConsultationRequest.findById(consultationId);
+    
+    if (!consultation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Consultation not found'
+      });
+    }
+
+    // Check authorization
+    if (consultation.patient.toString() !== userId && 
+        consultation.doctor?.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    const updatedConsultation = await ConsultationRequest.findByIdAndUpdate(
+      consultationId,
+      { status, notes: notes || consultation.notes },
+      { new: true }
+    ).populate('patient', 'name email profilePicture')
+     .populate('doctor', 'name email profilePicture');
+
+    res.status(200).json({
+      success: true,
+      message: 'Consultation updated successfully',
+      consultation: updatedConsultation
+    });
+  } catch (error) {
+    console.error('Error updating consultation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update consultation'
+    });
+  }
+};
+
+// Get patient's consultations
+export const getPatientConsultations = async (req, res) => {
+  try {
+    const patientId = req.user._id;
+
+    const consultations = await ConsultationRequest.find({ patient: patientId })
+      .populate('doctor', 'name email profilePicture specialization')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      consultations
+    });
+  } catch (error) {
+    console.error('Error fetching patient consultations:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch consultations'
+    });
+  }
+};
+
+// Get doctor's consultations
+export const getDoctorConsultations = async (req, res) => {
+  try {
+    const doctorId = req.user._id;
+
+    const consultations = await ConsultationRequest.find({ doctor: doctorId })
+      .populate('patient', 'name email profilePicture phone')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      consultations
+    });
+  } catch (error) {
+    console.error('Error fetching doctor consultations:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch consultations'
     });
   }
 };

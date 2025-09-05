@@ -1,30 +1,26 @@
-// Routes/ConsultationRoutes.js - Add new routes
 import express from 'express';
-import {
+import { 
   createConsultationRequest,
-  getPendingRequests,
+  getConsultationRequests,
   acceptConsultationRequest,
-  getUserConsultationRequests,
-  getActiveConsultation,
-  updateConsultationStatus,
-  getPatientPendingRequest,
   getConsultationById,
-  cancelConsultationRequest
+  updateConsultationStatus,
+  getPatientConsultations,
+  getDoctorConsultations
 } from '../Controllers/ConsultationController.js';
 import { VerifyToken } from '../Middleware/Verify.js';
 
-const ConsultationRoutes = express.Router();
+const router = express.Router();
 
-ConsultationRoutes.post('/create', VerifyToken, createConsultationRequest);
-ConsultationRoutes.get('/my-requests', VerifyToken, getUserConsultationRequests);
-ConsultationRoutes.get('/my-pending', VerifyToken, getPatientPendingRequest);
-ConsultationRoutes.put('/cancel/:requestId', VerifyToken, cancelConsultationRequest);
+// Patient routes
+router.post('/create', VerifyToken, createConsultationRequest);
+router.get('/patient/my-consultations', VerifyToken, getPatientConsultations);
+router.get('/:id', VerifyToken, getConsultationById);
 
-ConsultationRoutes.get('/pending', VerifyToken, getPendingRequests);
-ConsultationRoutes.put('/accept/:requestId', VerifyToken, acceptConsultationRequest);
+// Doctor routes
+router.get('/doctor/requests', VerifyToken, getConsultationRequests);
+router.get('/doctor/my-consultations', VerifyToken, getDoctorConsultations);
+router.put('/:id/accept', VerifyToken, acceptConsultationRequest);
+router.put('/:id/status', VerifyToken, updateConsultationStatus);
 
-ConsultationRoutes.get('/active', VerifyToken, getActiveConsultation);
-ConsultationRoutes.get('/:consultationId', VerifyToken, getConsultationById);
-ConsultationRoutes.put('/status/:requestId', VerifyToken, updateConsultationStatus);
-
-export default ConsultationRoutes;
+export default router;
