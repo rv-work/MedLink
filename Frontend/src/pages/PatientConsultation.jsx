@@ -1,8 +1,3 @@
-// # FIXED Patient Consultation Component
-
-// Replace your `PatientConsultation.jsx` with this improved version:
-
-// ```javascript
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
@@ -37,7 +32,7 @@ const PatientConsultation = () => {
       { urls: "stun:stun2.l.google.com:19302" },
       { urls: "stun:stun.services.mozilla.com" },
       {
-        urls: "turn:turn.anyfirewall.com:443?transport=tcp", // public testing TURN
+        urls: "turn:turn.anyfirewall.com:443?transport=tcp",
         username: "webrtc",
         credential: "webrtc",
       },
@@ -48,6 +43,15 @@ const PatientConsultation = () => {
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem("user") || "{}");
     console.log("User data loaded:", userData);
+
+    // Validate user data before proceeding
+    if (!userData || (!userData.id && !userData._id && !userData.userId)) {
+      console.error("❌ No valid user data found in localStorage");
+      toast.error("User not authenticated. Please login again.");
+      navigate("/login");
+      return;
+    }
+
     setUser(userData);
     initializeConsultation();
 
@@ -75,10 +79,14 @@ const PatientConsultation = () => {
           setCallStatus("waiting");
           console.log("⏳ Waiting for doctor to accept consultation");
         }
+      } else {
+        toast.error(data.message || "Failed to load consultation");
+        navigate("/dashboard");
       }
     } catch (error) {
       console.error("❌ Error initializing consultation:", error);
       toast.error("Failed to load consultation");
+      navigate("/dashboard");
     } finally {
       setLoading(false);
     }
@@ -87,6 +95,13 @@ const PatientConsultation = () => {
   const initializeVideoCall = async () => {
     if (isInitialized.current) {
       console.log("⚠️ Video call already initialized");
+      return;
+    }
+
+    // Check if user data is available
+    if (!user || (!user.id && !user._id && !user.userId)) {
+      console.error("❌ Cannot initialize video call: user data not available");
+      toast.error("User authentication error. Please refresh the page.");
       return;
     }
 
@@ -338,8 +353,14 @@ const PatientConsultation = () => {
         }
       };
 
-      // Now join the consultation
+      // Get userId safely with fallback
       const userId = user?.id || user?._id || user?.userId;
+
+      // Final validation before joining
+      if (!userId) {
+        throw new Error("Unable to get user ID for joining consultation");
+      }
+
       console.log("👤 Joining consultation as patient:", userId);
 
       socketRef.current.emit("join-consultation", {
@@ -410,7 +431,7 @@ const PatientConsultation = () => {
   };
 
   const sendMessage = () => {
-    if (newMessage.trim() && socketRef.current) {
+    if (newMessage.trim() && socketRef.current && user) {
       const messageData = {
         message: newMessage,
         sender: user?.name || "Patient",
@@ -535,10 +556,10 @@ const PatientConsultation = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-6">
-        {/* Debug Info (remove in production) */}
+        {/* Debug Info */}
         <div className="mb-4 p-3 bg-yellow-100 rounded-lg text-sm">
           <strong>Debug:</strong> Status: {callStatus} | User ID:{" "}
-          {user?.id || user?._id || "not found"} | Attempts:{" "}
+          {user?.id || user?._id || user?.userId || "not found"} | Attempts:{" "}
           {connectionAttempts}/3
         </div>
 
@@ -725,32 +746,3 @@ const PatientConsultation = () => {
 };
 
 export default PatientConsultation;
-// ```
-
-// ## Key Improvements in Patient Component:
-
-// ### 1. **Proper Initialization Flow**
-// - Sequential initialization: Media → Socket → WebRTC
-// - Protection against multiple initializations
-// - Better error handling at each step
-
-// ### 2. **Enhanced WebRTC Signaling**
-// - Waits for `consultation-ready` event
-// - Responds to `start-call` instructions
-// - Proper offer/answer flow handling
-
-// ### 3. **Connection Management**
-// - Connection state monitoring
-// - Automatic retry mechanism (up to 3 attempts)
-// - ICE restart on connection failure
-
-// ### 4. **Debugging Features**
-// - Extensive console logging
-// - Debug info panel (remove in production)
-// - Connection status indicators
-
-// ### 5. **Better User Experience**
-// - Clear status messages
-// - Visual connection indicators
-// - Manual retry option
-// - Improved error messages
