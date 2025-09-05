@@ -30,6 +30,7 @@ import {
   AlertTriangle,
   Settings,
   Database,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -41,7 +42,6 @@ const ModernNavbar = () => {
   const [isDoctorMenuOpen, setIsDoctorMenuOpen] = useState(false);
   const [isConsultationMenuOpen, setIsConsultationMenuOpen] = useState(false);
   const [isClinicMenuOpen, setIsClinicMenuOpen] = useState(false);
-  const [isEmergencyMenuOpen, setIsEmergencyMenuOpen] = useState(false);
 
   const toggleUserMenu = () => setIsUserMenuOpen(!isUserMenuOpen);
   const toggleAddReport = () => setIsAddReportOpen(!isAddReportOpen);
@@ -51,8 +51,6 @@ const ModernNavbar = () => {
   const toggleConsultationMenu = () =>
     setIsConsultationMenuOpen(!isConsultationMenuOpen);
   const toggleClinicMenu = () => setIsClinicMenuOpen(!isClinicMenuOpen);
-  const toggleEmergencyMenu = () =>
-    setIsEmergencyMenuOpen(!isEmergencyMenuOpen);
 
   const { isLoggedIn, user } = useAuth();
 
@@ -94,6 +92,12 @@ const ModernNavbar = () => {
       href: "/request-consultant",
       icon: Calendar,
       description: "Book doctor consultation",
+    },
+    {
+      name: "Enable Emergency",
+      href: "/enable-emergency",
+      icon: Shield,
+      description: "Setup emergency contacts",
     },
   ];
 
@@ -169,22 +173,6 @@ const ModernNavbar = () => {
     },
   ];
 
-  // Emergency Services Menu
-  const emergencyMenuItems = [
-    {
-      name: "Emergency Alert",
-      href: "/emergency",
-      icon: AlertTriangle,
-      description: "Send emergency alert",
-    },
-    {
-      name: "Enable Emergency",
-      href: "/enable-emergency",
-      icon: Shield,
-      description: "Setup emergency contacts",
-    },
-  ];
-
   const handleLogout = async () => {
     try {
       const response = await fetch(
@@ -218,7 +206,6 @@ const ModernNavbar = () => {
     setIsDoctorMenuOpen(false);
     setIsConsultationMenuOpen(false);
     setIsClinicMenuOpen(false);
-    setIsEmergencyMenuOpen(false);
   };
 
   const DropdownMenu = ({
@@ -234,7 +221,7 @@ const ModernNavbar = () => {
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-haspopup="true"
-        className="group relative px-4 xl:px-6 py-3 text-white/90 hover:text-white font-medium transition-all duration-300 rounded-xl hover:bg-white/10 backdrop-blur-sm border border-transparent hover:border-white/20"
+        className="group relative px-3 xl:px-5 py-3 text-white/90 hover:text-white font-medium transition-all duration-300 rounded-xl hover:bg-white/10 backdrop-blur-sm border border-transparent hover:border-white/20 hover:shadow-lg"
       >
         <div className="flex items-center space-x-2">
           <IconComponent className="h-5 w-5 group-hover:scale-110 transition-transform duration-300" />
@@ -251,29 +238,36 @@ const ModernNavbar = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 top-full mt-2 w-72 bg-white/95 backdrop-blur-lg rounded-xl shadow-2xl border border-white/20 overflow-hidden z-[60]">
-          {items.map((item, index) => {
-            const ItemIcon = item.icon;
-            return (
-              <a
-                key={item.name}
-                href={item.href}
-                className={`flex items-center space-x-3 px-4 py-3 text-gray-800 hover:bg-${colorScheme}-50 transition-colors duration-200 ${
-                  index < items.length - 1 ? "border-b border-gray-200/50" : ""
-                }`}
-              >
-                <div
-                  className={`w-8 h-8 bg-${colorScheme}-100 rounded-full flex items-center justify-center`}
+        <div className="absolute left-0 top-full mt-2 w-80 bg-white/96 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/30 overflow-hidden z-[60] transform transition-all duration-200">
+          <div className="p-2">
+            {items.map((item, index) => {
+              const ItemIcon = item.icon;
+              return (
+                <a
+                  key={item.name}
+                  href={item.href}
+                  className={`flex items-center space-x-4 px-4 py-4 text-gray-800 hover:bg-gradient-to-r hover:from-${colorScheme}-50 hover:to-${colorScheme}-100 transition-all duration-300 rounded-xl group ${
+                    index < items.length - 1 ? "mb-1" : ""
+                  }`}
                 >
-                  <ItemIcon className={`h-4 w-4 text-${colorScheme}-600`} />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{item.name}</p>
-                  <p className="text-xs text-gray-600">{item.description}</p>
-                </div>
-              </a>
-            );
-          })}
+                  <div
+                    className={`w-10 h-10 bg-gradient-to-br from-${colorScheme}-100 to-${colorScheme}-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-md`}
+                  >
+                    <ItemIcon className={`h-5 w-5 text-${colorScheme}-600`} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-800 group-hover:text-gray-900">
+                      {item.name}
+                    </p>
+                    <p className="text-xs text-gray-600 group-hover:text-gray-700">
+                      {item.description}
+                    </p>
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-gray-400 rotate-[-90deg] group-hover:text-gray-600 transition-colors duration-300" />
+                </a>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -292,23 +286,25 @@ const ModernNavbar = () => {
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-haspopup="true"
-        className={`group flex items-center justify-between w-full px-4 py-3 text-gray-800 hover:bg-${colorScheme}-50 transition-colors duration-200 rounded-xl`}
+        className={`group flex items-center justify-between w-full px-4 py-4 text-gray-800 hover:bg-gradient-to-r hover:from-${colorScheme}-50 hover:to-${colorScheme}-100 transition-all duration-300 rounded-2xl shadow-sm`}
       >
-        <div className="flex items-center space-x-3">
-          <IconComponent
-            className={`h-5 w-5 text-${colorScheme}-600 group-hover:scale-110 transition-transform duration-300`}
-          />
-          <span className="font-medium">{title}</span>
+        <div className="flex items-center space-x-4">
+          <div
+            className={`w-10 h-10 bg-gradient-to-br from-${colorScheme}-100 to-${colorScheme}-200 rounded-xl flex items-center justify-center`}
+          >
+            <IconComponent className={`h-5 w-5 text-${colorScheme}-600`} />
+          </div>
+          <span className="font-semibold">{title}</span>
         </div>
         <ChevronDown
-          className={`h-4 w-4 text-${colorScheme}-600 transition-transform duration-200 ${
+          className={`h-5 w-5 text-${colorScheme}-600 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
           }`}
         />
       </button>
 
       {isOpen && (
-        <div className="mt-2 ml-8 space-y-2">
+        <div className="mt-3 ml-6 space-y-2">
           {items.map((item) => {
             const ItemIcon = item.icon;
             return (
@@ -316,12 +312,12 @@ const ModernNavbar = () => {
                 key={item.name}
                 href={item.href}
                 onClick={closeAllMenus}
-                className={`flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-${colorScheme}-50 transition-colors duration-200 rounded-lg`}
+                className={`flex items-center space-x-4 px-4 py-3 text-gray-700 hover:bg-gradient-to-r hover:from-${colorScheme}-50 hover:to-${colorScheme}-100 transition-all duration-300 rounded-xl group`}
               >
                 <div
-                  className={`w-6 h-6 bg-${colorScheme}-100 rounded-full flex items-center justify-center`}
+                  className={`w-8 h-8 bg-gradient-to-br from-${colorScheme}-100 to-${colorScheme}-200 rounded-lg flex items-center justify-center`}
                 >
-                  <ItemIcon className={`h-3 w-3 text-${colorScheme}-600`} />
+                  <ItemIcon className={`h-4 w-4 text-${colorScheme}-600`} />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">{item.name}</p>
@@ -337,38 +333,40 @@ const ModernNavbar = () => {
 
   return (
     <>
-      <nav className="relative z-50 bg-gradient-to-r from-blue-600 via-purple-600 to-teal-600 shadow-2xl backdrop-blur-lg">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-teal-600/20 animate-pulse"></div>
+      <nav className="relative z-50 bg-gradient-to-r from-blue-600 via-purple-600 to-teal-600 shadow-2xl backdrop-blur-lg w-full">
+        {/* Enhanced animated background */}
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/30 via-purple-600/30 to-teal-600/30 animate-pulse"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-pulse"></div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-18 lg:h-20">
-            {/* Logo Section */}
-            <div className="flex items-center space-x-2 sm:space-x-3 group cursor-pointer">
+        <div className="relative w-full px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-18 sm:h-20 lg:h-24">
+            {/* Enhanced Logo Section */}
+            <div className="flex items-center space-x-3 sm:space-x-4 group cursor-pointer">
               <div className="relative">
-                <div className="absolute inset-0 bg-white/30 rounded-full blur-xl group-hover:blur-2xl transition-all duration-300"></div>
-                <div className="relative bg-white/20 backdrop-blur-sm p-2 sm:p-3 rounded-full border border-white/30 group-hover:scale-110 transition-all duration-300">
-                  <Stethoscope className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-white group-hover:text-blue-100" />
+                <div className="absolute inset-0 bg-white/40 rounded-full blur-xl group-hover:blur-2xl transition-all duration-500"></div>
+                <div className="relative bg-white/25 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-white/40 group-hover:scale-110 transition-all duration-300 shadow-2xl">
+                  <Stethoscope className="h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-white group-hover:text-blue-100 drop-shadow-lg" />
                 </div>
               </div>
               <div className="text-white">
-                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent drop-shadow-lg">
                   CareConnect
                 </h1>
-                <p className="text-xs text-blue-100 opacity-80 hidden sm:block">
-                  Healthcare Platform
+                <p className="text-sm text-blue-100 opacity-90 hidden sm:block font-medium">
+                  Advanced Healthcare Platform
                 </p>
               </div>
             </div>
 
             {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center space-x-1">
+            <div className="hidden lg:flex items-center space-x-2">
               {navItems.map((item) => {
                 const IconComponent = item.icon;
                 return (
                   <a
                     key={item.name}
                     href={item.href}
-                    className="group relative px-4 xl:px-6 py-3 text-white/90 hover:text-white font-medium transition-all duration-300 rounded-xl hover:bg-white/10 backdrop-blur-sm border border-transparent hover:border-white/20"
+                    className="group relative px-4 xl:px-6 py-3 text-white/90 hover:text-white font-medium transition-all duration-300 rounded-xl hover:bg-white/15 backdrop-blur-sm border border-transparent hover:border-white/30 hover:shadow-lg"
                   >
                     <div className="flex items-center space-x-2">
                       <IconComponent className="h-5 w-5 group-hover:scale-110 transition-transform duration-300" />
@@ -390,7 +388,7 @@ const ModernNavbar = () => {
                     onToggle={togglePatientMenu}
                     title="Patient Services"
                     icon={User}
-                    colorScheme="green"
+                    colorScheme="emerald"
                   />
 
                   <DropdownMenu
@@ -417,19 +415,19 @@ const ModernNavbar = () => {
                     onToggle={toggleClinicMenu}
                     title="Clinic Services"
                     icon={Building}
-                    colorScheme="orange"
+                    colorScheme="amber"
                   />
 
-                  {/* Add Report Dropdown */}
+                  {/* Enhanced Add Report Dropdown */}
                   <div className="relative">
                     <button
                       onClick={toggleAddReport}
                       aria-expanded={isAddReportOpen}
                       aria-haspopup="true"
-                      className="group relative px-4 xl:px-6 py-3 text-white/90 hover:text-white font-medium transition-all duration-300 rounded-xl hover:bg-white/10 backdrop-blur-sm border border-transparent hover:border-white/20"
+                      className="group relative px-3 xl:px-5 py-3 text-white/90 hover:text-white font-medium transition-all duration-300 rounded-xl hover:bg-white/15 backdrop-blur-sm border border-transparent hover:border-white/30 hover:shadow-lg"
                     >
                       <div className="flex items-center space-x-2">
-                        <Plus className="h-5 w-5 group-hover:scale-110 transition-transform duration-300" />
+                        <Plus className="h-5 w-5 group-hover:scale-110 group-hover:rotate-90 transition-all duration-300" />
                         <span className="relative">
                           Add Report
                           <div className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-white to-blue-200 group-hover:w-full transition-all duration-300"></div>
@@ -443,54 +441,70 @@ const ModernNavbar = () => {
                     </button>
 
                     {isAddReportOpen && (
-                      <div className="absolute left-0 top-full mt-2 w-56 bg-white/95 backdrop-blur-lg rounded-xl shadow-2xl border border-white/20 overflow-hidden z-[60]">
-                        <a
-                          href="/add-report-web2"
-                          className="flex items-center space-x-3 px-4 py-3 text-gray-800 hover:bg-green-50 transition-colors duration-200 border-b border-gray-200/50"
-                        >
-                          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                            <Globe className="h-4 w-4 text-green-600" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">Add in Web2</p>
-                            <p className="text-xs text-green-600 font-semibold">
-                              FREE
-                            </p>
-                          </div>
-                        </a>
-                        <a
-                          href="/add-report-web3"
-                          className="flex items-center space-x-3 px-4 py-3 text-gray-800 hover:bg-purple-50 transition-colors duration-200"
-                        >
-                          <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                            <Crown className="h-4 w-4 text-purple-600" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">Add in Web3</p>
-                            <p className="text-xs text-purple-600 font-semibold">
-                              PREMIUM
-                            </p>
-                          </div>
-                        </a>
+                      <div className="absolute left-0 top-full mt-2 w-72 bg-white/96 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/30 overflow-hidden z-[60]">
+                        <div className="p-2">
+                          <a
+                            href="/add-report-web2"
+                            className="flex items-center space-x-4 px-4 py-4 text-gray-800 hover:bg-gradient-to-r hover:from-emerald-50 hover:to-emerald-100 transition-all duration-300 rounded-xl group mb-1"
+                          >
+                            <div className="w-12 h-12 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-md">
+                              <Globe className="h-6 w-6 text-emerald-600" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-gray-800">
+                                Add in Web2
+                              </p>
+                              <p className="text-xs text-emerald-600 font-bold">
+                                ✨ FREE FOREVER
+                              </p>
+                            </div>
+                            <div className="px-3 py-1 bg-emerald-100 rounded-full">
+                              <span className="text-xs font-bold text-emerald-700">
+                                FREE
+                              </span>
+                            </div>
+                          </a>
+                          <a
+                            href="/add-report-web3"
+                            className="flex items-center space-x-4 px-4 py-4 text-gray-800 hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100 transition-all duration-300 rounded-xl group"
+                          >
+                            <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-md">
+                              <Crown className="h-6 w-6 text-purple-600" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-gray-800">
+                                Add in Web3
+                              </p>
+                              <p className="text-xs text-purple-600 font-bold">
+                                👑 BLOCKCHAIN SECURED
+                              </p>
+                            </div>
+                            <div className="px-3 py-1 bg-gradient-to-r from-purple-100 to-purple-200 rounded-full">
+                              <span className="text-xs font-bold text-purple-700">
+                                PRO
+                              </span>
+                            </div>
+                          </a>
+                        </div>
                       </div>
                     )}
                   </div>
                 </>
               )}
 
-              {/* User Profile Section - Desktop */}
+              {/* Enhanced User Profile Section - Desktop */}
               {isLoggedIn && (
-                <div className="relative ml-6 pl-6 border-l border-white/20">
+                <div className="relative ml-6 pl-6 border-l border-white/30">
                   <button
                     onClick={toggleUserMenu}
                     aria-expanded={isUserMenuOpen}
                     aria-haspopup="true"
-                    className="group flex items-center cursor-pointer space-x-2 px-4 py-2 text-white/90 hover:text-white font-medium transition-all duration-300 rounded-xl hover:bg-white/10 backdrop-blur-sm border border-transparent hover:border-white/20"
+                    className="group flex items-center cursor-pointer space-x-3 px-4 py-3 text-white/90 hover:text-white font-medium transition-all duration-300 rounded-xl hover:bg-white/15 backdrop-blur-sm border border-transparent hover:border-white/30 hover:shadow-lg"
                   >
-                    <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                    <div className="w-10 h-10 bg-gradient-to-br from-white/30 to-white/20 rounded-full flex items-center justify-center shadow-lg">
                       <User className="h-5 w-5" />
                     </div>
-                    <span className="hidden xl:block">
+                    <span className="hidden xl:block font-medium">
                       {user?.name || "User"}
                     </span>
                     <ChevronDown
@@ -501,9 +515,9 @@ const ModernNavbar = () => {
                   </button>
 
                   {isUserMenuOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-white/95 backdrop-blur-lg rounded-xl shadow-2xl border border-white/20 overflow-hidden z-[60]">
-                      <div className="px-4 py-3 border-b border-gray-200/50">
-                        <p className="text-sm font-medium text-gray-800">
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white/96 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/30 overflow-hidden z-[60]">
+                      <div className="px-5 py-4 border-b border-gray-200/50 bg-gradient-to-r from-blue-50 to-purple-50">
+                        <p className="text-sm font-semibold text-gray-800">
                           {user?.name || "User"}
                         </p>
                         <p className="text-xs text-gray-600">
@@ -512,7 +526,7 @@ const ModernNavbar = () => {
                       </div>
                       <button
                         onClick={handleLogout}
-                        className="w-full px-4 py-3 cursor-pointer text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-200 flex items-center space-x-2"
+                        className="w-full px-5 py-4 cursor-pointer text-left text-sm text-red-600 hover:bg-red-50 transition-colors duration-200 flex items-center space-x-3 font-medium"
                       >
                         <LogOut className="h-4 w-4" />
                         <span>Logout</span>
@@ -522,33 +536,39 @@ const ModernNavbar = () => {
                 </div>
               )}
 
-              {/* Emergency Dropdown - Desktop */}
-              <DropdownMenu
-                items={emergencyMenuItems}
-                isOpen={isEmergencyMenuOpen}
-                onToggle={toggleEmergencyMenu}
-                title="Emergency"
-                icon={Heart}
-                colorScheme="red"
-              />
+              {/* Enhanced Emergency Button - Desktop */}
+              <div className="ml-4">
+                <a
+                  href="/emergency"
+                  className="group relative bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-5 xl:px-7 py-3 rounded-2xl font-bold shadow-xl hover:shadow-red-500/30 transform hover:-translate-y-1 transition-all duration-300 flex items-center space-x-3 border border-red-400/30"
+                >
+                  <Heart className="h-5 w-5 lg:h-6 lg:w-6 group-hover:animate-pulse" />
+                  <span className="text-sm lg:text-base">Emergency</span>
+                  <div className="absolute inset-0 bg-red-400 rounded-2xl blur-lg opacity-40 group-hover:opacity-60 transition-opacity duration-300 -z-10"></div>
+                </a>
+              </div>
             </div>
 
-            {/* Mobile Right Section */}
+            {/* Enhanced Mobile Right Section */}
             <div className="flex lg:hidden items-center space-x-3">
+              {/* Emergency Button - Mobile */}
               <a
                 href="/emergency"
-                className="group relative bg-red-500 hover:bg-red-600 text-white p-2.5 sm:px-4 sm:py-2.5 rounded-full font-semibold shadow-lg hover:shadow-red-500/25 transform hover:-translate-y-1 transition-all duration-300 flex items-center space-x-1 sm:space-x-2"
+                className="group relative bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white p-3 sm:px-4 sm:py-3 rounded-2xl font-bold shadow-xl hover:shadow-red-500/30 transform hover:-translate-y-1 transition-all duration-300 flex items-center space-x-2"
               >
-                <Heart className="h-4 w-4 sm:h-5 sm:w-5 group-hover:animate-pulse" />
-                <span className="hidden sm:block text-sm">Emergency</span>
-                <div className="absolute inset-0 bg-red-400 rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
+                <Heart className="h-5 w-5 sm:h-6 sm:w-6 group-hover:animate-pulse" />
+                <span className="hidden sm:block text-sm font-bold">
+                  Emergency
+                </span>
+                <div className="absolute inset-0 bg-red-400 rounded-2xl blur-lg opacity-40 group-hover:opacity-60 transition-opacity duration-300 -z-10"></div>
               </a>
 
+              {/* Mobile Menu Button */}
               <button
                 onClick={toggleMobileMenu}
                 aria-label="Toggle mobile menu"
                 aria-expanded={isMobileMenuOpen}
-                className="group relative p-2 text-white/90 hover:text-white transition-all duration-300 rounded-xl hover:bg-white/10 backdrop-blur-sm border border-transparent hover:border-white/20"
+                className="group relative p-3 text-white/90 hover:text-white transition-all duration-300 rounded-xl hover:bg-white/15 backdrop-blur-sm border border-transparent hover:border-white/30"
               >
                 {isMobileMenuOpen ? (
                   <X className="h-6 w-6 group-hover:scale-110 transition-transform duration-300" />
@@ -560,24 +580,26 @@ const ModernNavbar = () => {
           </div>
         </div>
 
+        {/* Enhanced decorative elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-4 -right-4 w-16 sm:w-20 lg:w-24 h-16 sm:h-20 lg:h-24 bg-white/5 rounded-full blur-2xl animate-bounce"></div>
-          <div className="absolute -bottom-4 -left-4 w-20 sm:w-24 lg:w-32 h-20 sm:h-24 lg:h-32 bg-blue-400/5 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-3xl animate-bounce"></div>
+          <div className="absolute -bottom-6 -left-6 w-32 h-32 bg-blue-400/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute top-1/2 left-1/4 w-16 h-16 bg-purple-400/5 rounded-full blur-2xl animate-pulse delay-1000"></div>
         </div>
       </nav>
 
-      {/* Mobile Menu Overlay */}
+      {/* Enhanced Mobile Menu Overlay */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-[45] lg:hidden">
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-md"
             onClick={closeAllMenus}
           ></div>
 
-          <div className="absolute top-16 sm:top-18 left-0 right-0 bg-white/95 backdrop-blur-lg shadow-2xl border-b border-white/20 overflow-hidden max-h-[80vh] overflow-y-auto">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="absolute top-18 sm:top-20 left-0 right-0 bg-white/97 backdrop-blur-xl shadow-2xl border-b border-white/30 overflow-hidden max-h-[85vh] overflow-y-auto">
+            <div className="w-full px-4 sm:px-6 py-6">
               {/* Navigation Items */}
-              <div className="space-y-2 mb-6">
+              <div className="space-y-3 mb-8">
                 {navItems.map((item) => {
                   const IconComponent = item.icon;
                   return (
@@ -585,10 +607,12 @@ const ModernNavbar = () => {
                       key={item.name}
                       href={item.href}
                       onClick={closeAllMenus}
-                      className="group flex items-center space-x-3 px-4 py-3 text-gray-800 hover:bg-blue-50 transition-colors duration-200 rounded-xl"
+                      className="group flex items-center space-x-4 px-4 py-4 text-gray-800 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 transition-all duration-300 rounded-2xl shadow-sm"
                     >
-                      <IconComponent className="h-5 w-5 text-blue-600 group-hover:scale-110 transition-transform duration-300" />
-                      <span className="font-medium">{item.name}</span>
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center">
+                        <IconComponent className="h-5 w-5 text-blue-600 group-hover:scale-110 transition-transform duration-300" />
+                      </div>
+                      <span className="font-semibold">{item.name}</span>
                     </a>
                   );
                 })}
@@ -603,7 +627,7 @@ const ModernNavbar = () => {
                     onToggle={togglePatientMenu}
                     title="Patient Services"
                     icon={User}
-                    colorScheme="green"
+                    colorScheme="emerald"
                   />
 
                   <MobileDropdown
@@ -630,7 +654,7 @@ const ModernNavbar = () => {
                     onToggle={toggleClinicMenu}
                     title="Clinic Services"
                     icon={Building}
-                    colorScheme="orange"
+                    colorScheme="amber"
                   />
 
                   {/* Add Report Section - Mobile */}
@@ -639,48 +663,50 @@ const ModernNavbar = () => {
                       onClick={toggleAddReport}
                       aria-expanded={isAddReportOpen}
                       aria-haspopup="true"
-                      className="group flex items-center justify-between w-full px-4 py-3 text-gray-800 hover:bg-purple-50 transition-colors duration-200 rounded-xl"
+                      className="group flex items-center justify-between w-full px-4 py-4 text-gray-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-indigo-100 transition-all duration-300 rounded-2xl shadow-sm"
                     >
-                      <div className="flex items-center space-x-3">
-                        <Plus className="h-5 w-5 text-purple-600 group-hover:scale-110 transition-transform duration-300" />
-                        <span className="font-medium">Add Report</span>
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-xl flex items-center justify-center">
+                          <Plus className="h-5 w-5 text-indigo-600 group-hover:rotate-90 transition-transform duration-300" />
+                        </div>
+                        <span className="font-semibold">Add Report</span>
                       </div>
                       <ChevronDown
-                        className={`h-4 w-4 text-purple-600 transition-transform duration-200 ${
+                        className={`h-5 w-5 text-indigo-600 transition-transform duration-200 ${
                           isAddReportOpen ? "rotate-180" : ""
                         }`}
                       />
                     </button>
 
                     {isAddReportOpen && (
-                      <div className="mt-2 ml-8 space-y-2">
+                      <div className="mt-3 ml-6 space-y-3">
                         <a
                           href="/add-report-web2"
                           onClick={closeAllMenus}
-                          className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-green-50 transition-colors duration-200 rounded-lg"
+                          className="flex items-center space-x-4 px-4 py-4 text-gray-700 hover:bg-gradient-to-r hover:from-emerald-50 hover:to-emerald-100 transition-all duration-300 rounded-xl group"
                         >
-                          <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                            <Globe className="h-3 w-3 text-green-600" />
+                          <div className="w-10 h-10 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-xl flex items-center justify-center">
+                            <Globe className="h-5 w-5 text-emerald-600" />
                           </div>
                           <div className="flex-1">
-                            <p className="text-sm font-medium">Add in Web2</p>
-                            <p className="text-xs text-green-600 font-semibold">
-                              FREE
+                            <p className="text-sm font-semibold">Add in Web2</p>
+                            <p className="text-xs text-emerald-600 font-bold">
+                              ✨ FREE FOREVER
                             </p>
                           </div>
                         </a>
                         <a
                           href="/add-report-web3"
                           onClick={closeAllMenus}
-                          className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-purple-50 transition-colors duration-200 rounded-lg"
+                          className="flex items-center space-x-4 px-4 py-4 text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100 transition-all duration-300 rounded-xl group"
                         >
-                          <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
-                            <Crown className="h-3 w-3 text-purple-600" />
+                          <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
+                            <Crown className="h-5 w-5 text-purple-600" />
                           </div>
                           <div className="flex-1">
-                            <p className="text-sm font-medium">Add in Web3</p>
-                            <p className="text-xs text-purple-600 font-semibold">
-                              PREMIUM
+                            <p className="text-sm font-semibold">Add in Web3</p>
+                            <p className="text-xs text-purple-600 font-bold">
+                              👑 BLOCKCHAIN SECURED
                             </p>
                           </div>
                         </a>
@@ -690,30 +716,21 @@ const ModernNavbar = () => {
                 </>
               )}
 
-              <MobileDropdown
-                items={emergencyMenuItems}
-                isOpen={isEmergencyMenuOpen}
-                onToggle={toggleEmergencyMenu}
-                title="Emergency Services"
-                icon={AlertTriangle}
-                colorScheme="red"
-              />
-
               {/* User Profile Section - Mobile */}
               {isLoggedIn && (
-                <div className="border-t border-gray-200/50 pt-4 mt-6">
+                <div className="border-t border-gray-200/50 pt-6 mt-6">
                   <button
                     onClick={toggleUserMenu}
                     aria-expanded={isUserMenuOpen}
                     aria-haspopup="true"
-                    className="group flex items-center justify-between w-full px-4 py-3 text-gray-800 hover:bg-gray-50 transition-colors duration-200 rounded-xl"
+                    className="group flex items-center justify-between w-full px-4 py-4 text-gray-800 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 transition-all duration-300 rounded-2xl shadow-sm"
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <User className="h-5 w-5 text-blue-600" />
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center shadow-md">
+                        <User className="h-6 w-6 text-blue-600" />
                       </div>
                       <div className="text-left">
-                        <p className="text-sm font-medium">
+                        <p className="text-sm font-semibold">
                           {user?.name || "User"}
                         </p>
                         <p className="text-xs text-gray-600">
@@ -722,20 +739,22 @@ const ModernNavbar = () => {
                       </div>
                     </div>
                     <ChevronDown
-                      className={`h-4 w-4 text-gray-600 transition-transform duration-200 ${
+                      className={`h-5 w-5 text-gray-600 transition-transform duration-200 ${
                         isUserMenuOpen ? "rotate-180" : ""
                       }`}
                     />
                   </button>
 
                   {isUserMenuOpen && (
-                    <div className="mt-2 ml-8">
+                    <div className="mt-3 ml-6">
                       <button
                         onClick={handleLogout}
-                        className="flex items-center space-x-3 px-4 py-3 text-red-600 hover:bg-red-50 transition-colors duration-200 rounded-lg w-full text-left"
+                        className="flex items-center space-x-4 px-4 py-4 text-red-600 hover:bg-red-50 transition-colors duration-200 rounded-xl w-full text-left group"
                       >
-                        <LogOut className="h-4 w-4" />
-                        <span className="text-sm font-medium">Logout</span>
+                        <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                          <LogOut className="h-4 w-4" />
+                        </div>
+                        <span className="text-sm font-semibold">Logout</span>
                       </button>
                     </div>
                   )}
@@ -752,8 +771,7 @@ const ModernNavbar = () => {
         isPatientMenuOpen ||
         isDoctorMenuOpen ||
         isConsultationMenuOpen ||
-        isClinicMenuOpen ||
-        isEmergencyMenuOpen) &&
+        isClinicMenuOpen) &&
         !isMobileMenuOpen && (
           <div className="fixed inset-0 z-[35]" onClick={closeAllMenus}></div>
         )}
