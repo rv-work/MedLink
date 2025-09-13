@@ -72,7 +72,7 @@ export const AddFace = async (req , res) => {
 
 
  try {
-    const response = await axios.post("https://dr-av-instructors-threat.trycloudflare.com/signup", {
+    const response = await axios.post("http://0.0.0.0:5001/signup", {
       userId,
       image: img.buffer.toString("base64"), 
     });
@@ -96,7 +96,7 @@ export const Emergency = async (req, res) => {
   const img = req.file;
 
   try {
-    const response = await axios.post("https://dr-av-instructors-threat.trycloudflare.com/emergency", {
+    const response = await axios.post("http://0.0.0.0:5001/emergency", {
       image: img.buffer.toString("base64"),
     });
 
@@ -173,7 +173,7 @@ export const sendEmergencyAlert = async (req, res) => {
 
     await emergency.save();
 
-    const baseUrl = "https://medlink-bh5c.onrender.com";
+    const baseUrl = "http://localhost:5000";
     const approvalLink = `${baseUrl}/api/emergency/approve/${emergency._id}`;
     const rejectionLink = `${baseUrl}/api/emergency/reject/${emergency._id}`;
     const situationText = situation.replace("_", " ").toUpperCase();
@@ -213,7 +213,7 @@ Patient ${patientName} needs immediate medical assistance!
  -> DENY ACCESS: ${rejectionLink}`;
 
 
-    let phoneNumber = "8957553773".trim();
+    let phoneNumber = "7499454264".trim();
     if (!phoneNumber.startsWith("+")) phoneNumber = "+91" + phoneNumber;
 
     const messagePromises = [
@@ -248,7 +248,7 @@ Patient ${patientName} needs immediate medical assistance!
                   </Say>
                 </Response>`,
         from: twilioPhone,
-        to: "+919219343631",
+        to: "+917499454264",
       })
     );
 
@@ -468,7 +468,7 @@ export const rejectEmergency = async (req, res) => {
 //         });
 
 //         const response = await axios.post(
-//           "https://medlink-bh5c.onrender.com/api/verify-face",
+//           "http://localhost:5000/api/verify-face",
 //           form,
 //           { headers: form.getHeaders() }
 //         );

@@ -12,7 +12,7 @@ const client = twilio(
 export async function sendSMS() {
 
   
-    const baseUrl = "https://medlink-bh5c.onrender.com";
+    const baseUrl = "http://localhost:5000";
     const approvalLink = `${baseUrl}/api/emergency/approve/${123}`;
     const rejectionLink = `${baseUrl}/api/emergency/reject/${123}`;
     const locationUrl = `https://maps.google.com/?q=`;

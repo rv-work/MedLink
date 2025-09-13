@@ -1,5 +1,4 @@
-import { EmergencyContact } from "../Models/UserModel.js"; // adjust path if needed
-
+import { EmergencyContact } from "../Models/UserModel.js"; 
 import { Doctor } from '../Models/Doctor.js';
 import HealthReport from '../Models/HealthReport.js';
 import Treatment from '../Models/Treatment.js';
@@ -7,12 +6,7 @@ import { UserModel , Vitals } from '../Models/UserModel.js';
 import { DecryptArrayField  } from '../Utils/Encrypt.js';
 import { GoogleGenerativeAI  } from "@google/generative-ai";
 import twilio from "twilio";
-
-
-
 import dotenv from 'dotenv';
-import { handleApiError } from "@pinecone-database/pinecone/dist/errors/handling.js";
-
 dotenv.config();
 
 
@@ -151,7 +145,6 @@ export const UploadUserReportWeb3 = async (req, res) => {
       doctorMedlinkId
     } = req.body;
 
-    // Validation checks
     if (!address) {
       return res.status(400).json({
         success: false,
@@ -166,7 +159,6 @@ export const UploadUserReportWeb3 = async (req, res) => {
       });
     }
 
-    // Find user by wallet address
     const acc = await UserModel.findOne({
       walletAddress: address
     });
@@ -184,7 +176,6 @@ export const UploadUserReportWeb3 = async (req, res) => {
      medId = doctorMedlinkId
     }
 
-    // Parse medicines if it's a string
     let parsedMedicines = medicines;
     if (typeof medicines === 'string') {
       try {
@@ -197,7 +188,6 @@ export const UploadUserReportWeb3 = async (req, res) => {
       }
     }
 
-    // Parse vitals if provided
     let parsedVitals = {};
     if (vitals) {
       if (typeof vitals === 'string') {
@@ -230,7 +220,6 @@ export const UploadUserReportWeb3 = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid dateOfReport" });
     }
 
-    // Create new report (same as Web2 but without file attachments)
     const newReport = new HealthReport({
       owner: req.user._id,
       patientName,
@@ -269,7 +258,6 @@ export const UploadUserReportWeb3 = async (req, res) => {
         treatment = await createTreatmentFromReport(savedReport._id, req.user._id );
       } catch (treatmentError) {
         console.warn('Failed to create treatment:', treatmentError.message);
-        // Don't fail the whole request if treatment creation fails
       }
     }
 
@@ -332,7 +320,6 @@ export const UpdateUserReportWeb3 =async (req , res) => {
 
 
 
-// Helper function to calculate maximum treatment days from medicines
 const calculateMaxTreatmentDays = (medicines) => {
   if (!medicines || medicines.length === 0) return 0;
 
@@ -350,10 +337,9 @@ const calculateMaxTreatmentDays = (medicines) => {
     }
   });
 
-  return maxDays || 7; // Default to 7 days if calculation fails
+  return maxDays || 7; 
 };
 
-// Helper function to generate daily schedule
 const generateDailySchedule = (medicines, startDate, totalDays) => {
   const days = [];
 
@@ -368,7 +354,6 @@ const generateDailySchedule = (medicines, startDate, totalDays) => {
       const frequency = parseInt(medicine.frequency) || 1;
       const quantity = parseInt(medicine.quantity) || 0;
       
-      // Check if this medicine should still be taken on this day
       const daysNeeded = Math.ceil(quantity / frequency);
       if (i < daysNeeded) {
         totalMedicinesToTake += frequency;
@@ -412,7 +397,6 @@ export const createTreatmentFromReport = async (reportId, userId ) => {
       throw new Error('Unauthorized access to health report');
     }
 
-    // Check if treatment already exists for this report
     const existingTreatment = await Treatment.findOne({ 
       healthReportId: reportId,
       status: { $ne: 'completed' }
@@ -538,10 +522,8 @@ export const UploadUserReportWeb2 = async (req, res) => {
       return res.status(400).json({ success: false, message: "Please upload at least one report file" });
     }
 
-    // Handle doctor ID
     let medId = isIdAvailable ? doctorMedlinkId : "Not Available";
 
-    // Parse medicines
     let parsedMedicines = medicines;
     if (typeof medicines === "string") {
       try {
@@ -551,7 +533,6 @@ export const UploadUserReportWeb2 = async (req, res) => {
       }
     }
 
-    // Parse vitals
     let parsedVitals = {};
     if (vitals) {
       if (typeof vitals === "string") {
@@ -565,7 +546,6 @@ export const UploadUserReportWeb2 = async (req, res) => {
         parsedVitals = vitals;
       }
 
-      // Sanitize embedded dates in vitals (like weightRecords, heightRecords)
       ["weightRecords", "heightRecords"].forEach(key => {
         if (Array.isArray(parsedVitals[key])) {
           parsedVitals[key] = parsedVitals[key].map(record => {
@@ -580,7 +560,6 @@ export const UploadUserReportWeb2 = async (req, res) => {
       });
     }
 
-    // Prepare attachments
     const attachments = [];
     if (req.files.reportFiles) {
       req.files.reportFiles.forEach(file => {
@@ -1298,9 +1277,6 @@ export const getCriticalData = async (req, res) => {
     });
   }
 };
-
-import twilio from "twilio";
-import EmergencyContact from "../models/EmergencyContact.js";
 
 export const PleaseHelp = async (req, res) => {
   try {
