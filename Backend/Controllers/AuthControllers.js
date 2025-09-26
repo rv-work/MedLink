@@ -330,7 +330,7 @@ console.log("aaya nya ")
 
     console.log("saved")
 
-    const token = jwt.sign({ id: newUser._id },  'secretkey', { expiresIn: '7d' });
+    const token = jwt.sign({ id: newUser._id },  'secret', { expiresIn: '7d' });
 
     console.log("token")
 
@@ -403,7 +403,7 @@ export const Login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ msg: 'Invalid credentials' });
 
-    const token = jwt.sign({ id: user._id }, 'secretkey', { expiresIn: '7d' });
+    const token = jwt.sign({ id: user._id }, 'secret', { expiresIn: '7d' });
 
     res.cookie('token', token, {
       httpOnly: true,
