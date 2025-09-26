@@ -1,21 +1,22 @@
+import pkg from "node-cron"; 
+const cron = pkg.default || pkg;
 
-
-import cron from "node-cron";
-import {TreatmentSummary , Doctor} from "../Models/Doctor.js";
+import { TreatmentSummary, Doctor } from "../Models/Doctor.js";
 import Treatment from "../Models/Treatment.js";
 
 export const startDailySummaryJob = () => {
-
-
-
-  cron.schedule("35 4* * *", async () => {
-    console.log("⏰ Running 4AM Treatment Summary Job...");
+  cron.schedule("40 4 * * *", async () => {
+    console.log("⏰ Running 4:35AM Treatment Summary Job...");
 
     try {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const startOfDay = new Date(yesterday.setHours(0, 0, 0, 0));
-      const endOfDay = new Date(yesterday.setHours(23, 59, 59, 999));
+
+      const startOfDay = new Date(yesterday);
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(yesterday);
+      endOfDay.setHours(23, 59, 59, 999);
 
       const activeTreatments = await Treatment.find({
         status: "active",
@@ -52,6 +53,7 @@ export const startDailySummaryJob = () => {
 
         const savedSummary = await summary.save();
 
+        // Update doctor and treatment with summary reference
         await Doctor.findByIdAndUpdate(treatment.doctor, {
           $push: { summaries: savedSummary._id }
         });
