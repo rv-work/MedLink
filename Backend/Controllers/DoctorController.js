@@ -56,6 +56,9 @@ export const registerDoctor = async (req, res) => {
 
     await doctor.save();
 
+    user.isDoctor = true;
+    await user.save(); 
+
     return res.json({ success: true, message: "Doctor registered successfully ✅", doctor });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Server error", error });

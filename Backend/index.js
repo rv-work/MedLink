@@ -13,6 +13,7 @@ import ConsultationRoutes from "./Routes/ConsultationRoutes.js";
 import ClinicRouter from "./Routes/ClinicRoutes.js";
 
 import { connectDB } from "./DB/connectDB.js";
+import bloodRouter from "./Routes/bloodRoutes.js";
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.use(cors({
     'https://dr-av-instructors-threat.trycloudflare.com',
     'https://med-link-rvn.vercel.app',
     'https://med-link-rvn.vercel.app/',
+    '*'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
@@ -46,6 +48,7 @@ app.use("/api/treatment", treatMentRouter);
 app.use("/api/doctor", doctorRouter);
 app.use("/api/clinic", ClinicRouter);
 app.use('/api/consultation', ConsultationRoutes);
+app.use('/api/blood', bloodRouter);
 
 app.get("/", (req, res) => {
   res.json({

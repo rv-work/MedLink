@@ -217,4 +217,62 @@ export const uploadBulkFiles = multer({
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Storage for donor photos
+const donorPhotoStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'blood-donation/donor-photos',
+    allowed_formats: ['jpg', 'jpeg', 'png'],
+    transformation: [
+      { width: 500, height: 500, crop: 'fill' },
+      { quality: 'auto:best' }
+    ]
+  }
+});
+
+// Storage for certificates
+const certificateStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'blood-donation/certificates',
+    allowed_formats: ['pdf', 'jpg', 'png'],
+    resource_type: 'auto'
+  }
+});
+
+
+
+
+const donarStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'blood-donors',
+    allowed_formats: ['jpg', 'png', 'jpeg'],
+    transformation: [{ width: 500, height: 500, crop: 'limit' }]
+  },
+});
+
+const upload = multer({ 
+  storage: donarStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  }
+});
+
+export const uploadDonorPhoto = upload.single('donorPhoto');
+
 export default uploadEmergency;

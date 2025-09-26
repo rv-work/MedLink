@@ -167,6 +167,8 @@
 import mongoose from 'mongoose';
 import HealthReport from './HealthReport.js';
 
+
+
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
@@ -175,20 +177,53 @@ const userSchema = new mongoose.Schema({
   phone: String,
   gender: String,
   dob: Date,
-  bloodGroup: String,
+  profilePicture: String,
 
-  profilePicture : String,
+  city: String,
+  state: String,
+  address: {
+  houseNumber: String,
+  street: String,
+  area: String,
+  city: String,
+  state: String,
+  country: { type: String, default: 'India' },
+  pincode: String,
+  landmark: String, 
+  location: {
+    type: { type: String, enum: ['Point'], default: 'Point' },
+    coordinates: {
+      type: [Number], 
+      default: [0, 0]
+    }
+  }
+},
+
+  bloodGroup: {
+    type: String,
+    enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+  },
+  donorStatus: {
+    type: String,
+    enum: ['Available', 'Not Available', 'Recently Donated'],
+    default: 'Available'
+  },
+  lastDonationDate: Date,
+  totalDonations: { type: Number, default: 0 },
+  donationPreferences: {
+    maxDistance: { type: Number, default: 50 }, // km
+    availableForEmergency: { type: Boolean, default: true },
+    preferredHospitals: [String]
+  },
 
   heightRecords: [{
     value: Number,
     date: { type: Date, default: Date.now }
   }],
-
   weightRecords: [{
     value: Number,
     date: { type: Date, default: Date.now }
   }],
-
   medicalHistory: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'MedicalHistory'
@@ -210,15 +245,19 @@ const userSchema = new mongoose.Schema({
     ref: 'HealthReport'
   }],
 
-  emergencyEnabled: {
-    type: Boolean,
-    default: false
+  isDoctor : { type: Boolean, default: false },
+
+  emergencyEnabled: { type: Boolean, default: false },
+  pushNotificationToken: String,
+  notificationPreferences: {
+    bloodRequestAlerts: { type: Boolean, default: true },
+    emergencyAlerts: { type: Boolean, default: true },
+    communityUpdates: { type: Boolean, default: true }
   }
 
+}, { timestamps: true });
 
 
-
-} , {timestamps : true});
 
 
 const allergySchema = new mongoose.Schema({

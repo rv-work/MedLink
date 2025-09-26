@@ -15,7 +15,8 @@ export const VerifyToken = async (req, res, next) => {
       return res.status(401).json({ msg: 'No token. Auth denied' });
     }
 
-    const decoded = jwt.verify(token, 'secretkey');
+
+    const decoded = jwt.verify(token, 'secret');
 
     req.user = await UserModel.findById(decoded.id).select('-password');
     next();
@@ -33,7 +34,7 @@ export const VerifyDoctor = async (req, res, next) => {
     const isDoctor = await Doctor.findOne({user : user._id})
 
     if(!isDoctor){
-      return  res.status(401).json({  msg: 'No Doctor Found' });
+      return  res.status(200).json({ success : false,  msg: 'Only Doctor Can Create' });
     }
 
     req.doctor = await Doctor.findById(isDoctor._id);

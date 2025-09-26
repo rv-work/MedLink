@@ -24,57 +24,170 @@ export const Signup = async (req, res) => {
       weight,
       height,
       bloodGroup,
+      
+      // New wallet address field
+      walletAddress,
+      
+      // Address fields
+      houseNumber,
+      street,
+      area,
+      city,
+      state,
+      country = 'India',
+      pincode,
+      landmark,
+      coordinates, // [longitude, latitude]
+      
+      // Blood donation fields
+      donorStatus = 'Available',
+      lastDonationDate,
+      totalDonations = 0,
+      maxDistance = 50,
+      availableForEmergency = true,
+      preferredHospitals,
+      
+      // Medical history arrays
       allergies, 
       chronicConditions, 
       surgicalHistory, 
-      immunizations, 
+      immunizations,
+      
+      // Vitals
       bloodPressureSystolic,
       bloodPressureDiastolic,
       bloodSugar,
       cholesterol,
       heartRate,
+      
+      // Lifestyle
       smokingStatus,
       alcoholConsumption,
       exerciseFrequency,
       dietType,
       sleepDuration,
-      emergencyContacts, 
-      faceDescriptor
+      
+      // Emergency contacts and settings
+      emergencyContacts,
+      emergencyEnabled = false,
+      pushNotificationToken,
+      bloodRequestAlerts = true,
+      emergencyAlerts = true,
+      communityUpdates = true,
+      
+      
     } = req.body;
-
-    const existingUser = await UserModel.findOne({ email });
+console.log("aaya nya ")
+    const existingUser = await UserModel.findOne({ 
+      $or: [
+        { email },
+        { walletAddress: walletAddress && walletAddress.trim() !== '' ? walletAddress : null }
+      ].filter(Boolean)
+    });
     
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      if (existingUser.email === email) {
+        return res.status(400).json({ message: 'User with this email already exists' });
+      }
+      if (existingUser.walletAddress === walletAddress) {
+        return res.status(400).json({ message: 'User with this wallet address already exists' });
+      }
     }
 
+    
     const hashedPassword = await bcrypt.hash(password, 10);
 
+ 
     const allergiesArray = JSON.parse(allergies || '[]');
     const chronicConditionsArray = JSON.parse(chronicConditions || '[]');
     const surgicalHistoryArray = JSON.parse(surgicalHistory || '[]');
     const immunizationsArray = JSON.parse(immunizations || '[]');
-    const emergencyContactsArray = JSON.parse(emergencyContacts || '[]'); 
+    const emergencyContactsArray = JSON.parse(emergencyContacts || '[]');
+    
 
+    let parsedCoordinates = [0, 0];
+    if (coordinates) {
+      try {
+        parsedCoordinates = typeof coordinates === 'string' ? JSON.parse(coordinates) : coordinates;
+      } catch (error) {
+        console.warn('Invalid coordinates format, using default [0, 0]');
+      }
+    }
+
+ 
+    let preferredHospitalsArray = [];
+    if (preferredHospitals && typeof preferredHospitals === 'string') {
+      preferredHospitalsArray = preferredHospitals.split(',').map(hospital => hospital.trim()).filter(Boolean);
+    }
+
+    // Get uploaded file
     const file = req.file;
 
+    // Create new user with all fields
     const newUser = new UserModel({
       name,
       email,
       password: hashedPassword,
       phone,
       gender,
-      dob,
+      dob: dob ? new Date(dob) : null,
       profilePicture: file?.path,
-      weightRecords: [{ value: weight, date: new Date() }],
-      heightRecords: [{ value: height, date: new Date() }],
+      
+      // Wallet address
+      walletAddress: walletAddress || undefined,
+      
+      // Physical data
+      weightRecords: weight ? [{ value: parseFloat(weight), date: new Date() }] : [],
+      heightRecords: height ? [{ value: parseFloat(height), date: new Date() }] : [],
       bloodGroup,
-      walletAddress: "0xde434bEd30c2a032C8bc3D6C6B3C29f4419860AF",
-      faceDescriptor
+      
+      // Address
+      city,
+      state,
+      address: {
+        houseNumber,
+        street,
+        area,
+        city,
+        state,
+        country,
+        pincode,
+        landmark,
+        location: {
+          type: 'Point',
+          coordinates: parsedCoordinates
+        }
+      },
+      
+      // Blood donation fields
+      donorStatus,
+      lastDonationDate: lastDonationDate ? new Date(lastDonationDate) : null,
+      totalDonations: parseInt(totalDonations) || 0,
+      donationPreferences: {
+        maxDistance: parseInt(maxDistance) || 50,
+        availableForEmergency: Boolean(availableForEmergency),
+        preferredHospitals: preferredHospitalsArray
+      },
+      
+      // Emergency and notification settings
+      emergencyEnabled: Boolean(emergencyEnabled),
+      pushNotificationToken,
+      notificationPreferences: {
+        bloodRequestAlerts: Boolean(bloodRequestAlerts),
+        emergencyAlerts: Boolean(emergencyAlerts),
+        communityUpdates: Boolean(communityUpdates)
+      },
+      
+      
     });
 
+    // Save user first
     await newUser.save();
 
+
+    console.log("user saved")
+
+    // Process medical history arrays
     const processedAllergies = allergiesArray.map(allergy => ({
       allergen: allergy.allergen || '',
       type: allergy.type || '',
@@ -126,9 +239,8 @@ export const Signup = async (req, res) => {
       provider: immunization.provider || '',
       lotNumber: immunization.lotNumber || '',
       sideEffects: immunization.sideEffects || '',
-      status: immunization.status || ''
+      status: immunization.status || 'Current'
     }));
-    
 
     const medHistory = new MedicalHistory({
       owner: newUser._id,
@@ -138,48 +250,46 @@ export const Signup = async (req, res) => {
       immunizationsEncrypted: EncryptArrayField(processedImmunizations),
     });
 
-
     const latestWeight = newUser.weightRecords?.[newUser.weightRecords.length - 1]?.value;
     const latestHeight = newUser.heightRecords?.[newUser.heightRecords.length - 1]?.value;
     
     const calculatedBMI = latestWeight && latestHeight
       ? parseFloat((latestWeight / ((latestHeight / 100) ** 2)).toFixed(2))
       : null;
-    
-        
+
     const vitals = new Vitals({
       owner: newUser._id,
-      bloodPressure: [
+      bloodPressure: bloodPressureSystolic && bloodPressureDiastolic ? [
         {
-          systolic: bloodPressureSystolic,
-          diastolic: bloodPressureDiastolic,
+          systolic: parseInt(bloodPressureSystolic),
+          diastolic: parseInt(bloodPressureDiastolic),
           date: new Date()
         }
-      ],
-      bloodSugar: [
+      ] : [],
+      bloodSugar: bloodSugar ? [
         {
-          value: bloodSugar,
+          value: parseInt(bloodSugar),
           date: new Date()
         }
-      ],
-      cholesterol: [
+      ] : [],
+      cholesterol: cholesterol ? [
         {
-          value: cholesterol,
+          value: parseInt(cholesterol),
           date: new Date()
         }
-      ],
-      heartRate: [
+      ] : [],
+      heartRate: heartRate ? [
         {
-          value: heartRate,
+          value: parseInt(heartRate),
           date: new Date()
         }
-      ],
-      bmi: [
+      ] : [],
+      bmi: calculatedBMI ? [
         {
           value: calculatedBMI,
           date: new Date()
         }
-      ]
+      ] : []
     });
 
     const lifestyle = new Lifestyle({
@@ -194,50 +304,82 @@ export const Signup = async (req, res) => {
     const emergencyContactPromises = emergencyContactsArray.map(contact => {
       const emergency = new EmergencyContact({
         owner: newUser._id,
-        name: contact.name,
-        phone: contact.phone,
-        relation: contact.relation
+        name: contact.name || '',
+        phone: contact.phone || '',
+        relation: contact.relation || ''
       });
       return emergency.save();
     });
 
     const savedEmergencyContacts = await Promise.all(emergencyContactPromises);
-
+   console.log("before a;;")
     await Promise.all([
       medHistory.save(),
       vitals.save(),
       lifestyle.save()
     ]);
 
+    console.log("after promise ")
+
     newUser.medicalHistory = medHistory._id;
     newUser.vitals = vitals._id;
     newUser.lifestyle = lifestyle._id;
-    newUser.emergencyContacts = savedEmergencyContacts.map(contact => contact._id); 
+    newUser.emergencyContacts = savedEmergencyContacts.map(contact => contact._id);
+    console.log("all done")
+    await newUser.save();
 
-    await newUser.save(); 
+    console.log("saved")
 
-    const token = jwt.sign({ id: newUser._id }, 'secretkey', { expiresIn: '7d' });
+    const token = jwt.sign({ id: newUser._id },  'secretkey', { expiresIn: '7d' });
+
+    console.log("token")
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'None', 
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    res.status(201).json({
+   console.log("return")
+    return res.status(200).json({
       success: true,
       message: 'Signup successful',
       token,
-      user: {
+      user: { 
         id: newUser._id,
         name: newUser.name,
-        email: newUser.email
+        email: newUser.email,
+        walletAddress: newUser.walletAddress,
+        bloodGroup: newUser.bloodGroup,
+        donorStatus: newUser.donorStatus,
+        city: newUser.city,
+        state: newUser.state,
+        isDoctor : newUser.isDoctor
       }
     });
 
   } catch (error) {
     console.error('Signup Error:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({ 
+        success: false,
+        message: 'Validation failed',
+        errors: validationErrors
+      });
+    }
+
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyValue)[0];
+      return res.status(400).json({ 
+        success: false,
+        message: `${field} already exists`
+      });
+    }
+
     res.status(500).json({ 
       success: false,
       message: 'Server error during signup',
@@ -245,6 +387,7 @@ export const Signup = async (req, res) => {
     });
   }
 };
+
 
 
 
@@ -269,7 +412,7 @@ export const Login = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    res.status(200).json({ success : true, msg: 'Login successful', user , token  });
+    res.status(200).json({ success : true, msg: 'Login successful' , token, isDoctor  : user.isDoctor });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -294,15 +437,15 @@ export const CheckAuth = async (req, res) => {
       return res.status(401).json({ msg: "No token. Auth denied" });
     }
 
-    const decoded = jwt.verify(token, "secretkey");
+    const decoded = jwt.verify(token, 'secret');
 
-    const user = await UserModel.findById(decoded.id).select("name email");
+    const user = await UserModel.findById(decoded.id).select("name email isDoctor");
 
     if (!user) {
       return res.status(404).json({ msg: "User not found" });
     }
 
-    res.json({ success: true, user });
+    res.json({ success: true, user , isDoctor : user.isDoctor });
   } catch (err) {
     console.error(err);
     res.status(401).json({ msg: "Token is not valid" });
