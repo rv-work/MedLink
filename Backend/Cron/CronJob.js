@@ -8,7 +8,7 @@ export const startDailySummaryJob = () => {
 
 
 
-  cron.schedule("0 4 * * *", async () => {
+  cron.schedule("35 4* * *", async () => {
     console.log("⏰ Running 4AM Treatment Summary Job...");
 
     try {
