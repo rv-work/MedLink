@@ -13,7 +13,7 @@ import ConsultationRoutes from "./Routes/ConsultationRoutes.js";
 import ClinicRouter from "./Routes/ClinicRoutes.js";
 
 import { connectDB } from "./DB/connectDB.js";
-import bloodRouter from "./Routes/bloodRoutes.js";
+import bloodRouter from "./Routes/BloodRoutes.js";
 
 dotenv.config();
 
