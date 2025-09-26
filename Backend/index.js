@@ -14,6 +14,7 @@ import ClinicRouter from "./Routes/ClinicRoutes.js";
 
 import { connectDB } from "./DB/connectDB.js";
 import bloodRouter from "./Routes/BloodRoutes.js";
+import { startDailySummaryJob } from "./Cron/CronJob.js";
 
 dotenv.config();
 
@@ -69,6 +70,7 @@ app.get("/health", (req, res) => {
 
 
 connectDB();
+startDailySummaryJob()
 
 const PORT = process.env.PORT || 5000;
 
