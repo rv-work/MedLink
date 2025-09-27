@@ -163,6 +163,7 @@ export const sendEmergencyAlert = async (req, res) => {
       patientName,
       hospitalName,
       address: address || "",
+      coordinates,
       situation,
       description: description || "",
       photo: pic?.path || null,

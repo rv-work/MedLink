@@ -32,16 +32,14 @@ const emergencySchema = new mongoose.Schema({
   photo: {
     type: String // base64 encoded image or image URL
   },
-  // coordinates: {
-  //   latitude: {
-  //     type: Number,
-  //     required: true
-  //   },
-  //   longitude: {
-  //     type: Number,
-  //     required: true
-  //   }
-  // },
+  coordinates: {
+    latitude: {
+      type: Number,
+    },
+    longitude: {
+      type: Number,
+    }
+  },
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],

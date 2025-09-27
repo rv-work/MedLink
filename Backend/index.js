@@ -29,8 +29,8 @@ app.use(cors({
     'http://localhost:5173', 
     'http://localhost:3000',
     'http://0.0.0.0:5001',
-    'https://highlight-everybody-cho-resource.trycloudflare.com',
-    "https://meets-alice-diagnostic-jack.trycloudflare.com",
+    'https://carl-slow-interaction-believes.trycloudflare.com',
+    "https://expired-hats-porcelain-epinions.trycloudflare.com ",
     'https://med-link-rvn.vercel.app',
     'https://med-link-rvn.vercel.app/',
     '*'
