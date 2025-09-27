@@ -29,7 +29,8 @@ app.use(cors({
     'http://localhost:5173', 
     'http://localhost:3000',
     'http://0.0.0.0:5001',
-    'https://dr-av-instructors-threat.trycloudflare.com',
+    'https://highlight-everybody-cho-resource.trycloudflare.com',
+    "https://meets-alice-diagnostic-jack.trycloudflare.com",
     'https://med-link-rvn.vercel.app',
     'https://med-link-rvn.vercel.app/',
     '*'
