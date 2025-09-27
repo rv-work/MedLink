@@ -96,7 +96,7 @@ export const Emergency = async (req, res) => {
   const img = req.file;
 
   try {
-    const response = await axios.post("https://traveller-mainstream-modification-finishing.trycloudflare.com/emergency", {
+    const response = await axios.post("https://memo-ecological-elite-dealt.trycloudflare.com/emergency", {
       image: img.buffer.toString("base64"),
     });
 
