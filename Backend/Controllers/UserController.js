@@ -1332,8 +1332,8 @@ This is an automatic accident detection alert. Please check on them immediately 
       try {
         const sms = await client.messages.create({
           body: emergencyMessage,
-          from: twilioPhone,
-          to: phone,
+          from: "+13185344281",
+          to: "+918957553773",
         });
         results.push({
           contact: phone,
@@ -1389,8 +1389,8 @@ This is an automatic accident detection alert. Please check on them immediately 
               This message will repeat.
             </Say>
           </Response>`,
-          from: twilioPhone,
-          to: phone,
+          from: "+13185344281",
+          to: "+918957553773",
         });
         results.push({
           contact: phone,
