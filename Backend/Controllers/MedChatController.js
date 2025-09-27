@@ -259,7 +259,7 @@ const getMLDiagnosis = async (req, res) => {
 
     while (retryCount < maxRetries) {
       try {
-        mlResponse = await axios.post('https://expired-hats-porcelain-epinions.trycloudflare.com /diagnose', {
+        mlResponse = await axios.post('https://produces-tire-ceiling-minimal.trycloudflare.com/diagnose', {
           message: message,
           session_id: session_id,
           step: step || 'symptom',
