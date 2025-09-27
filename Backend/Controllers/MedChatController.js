@@ -238,21 +238,51 @@ const getBookOnly = async (req, res) => {
 // Mode 3: ML Diagnosis
 const getMLDiagnosis = async (req, res) => {
   try {
-    const { message, sessionId, step, context } = req.body;
-    
-    if (!message || !sessionId) {
+    const { message, session_id, step, context } = req.body;
+
+    if (!message || !session_id) {
       return res.status(400).json({
-        error: 'Message and sessionId are required'
+        error: 'Message and session_id are required'
       });
     }
 
-    // Call Python ML service
-    const mlResponse = await axios.post('http://localhost:8000/diagnose', {
-      message: message,
-      session_id: sessionId,
-      step: step || 'symptom',
-      context: context || null
+    console.log('Proxying ML diagnosis request to Python service:', {
+      message: message.substring(0, 50) + '...',
+      session_id,
+      step: step || 'symptom'
     });
+
+    // Call Python ML service with timeout and retry logic
+    let mlResponse;
+    const maxRetries = 3;
+    let retryCount = 0;
+
+    while (retryCount < maxRetries) {
+      try {
+        mlResponse = await axios.post('http://localhost:8000/diagnose', {
+          message: message,
+          session_id: session_id,
+          step: step || 'symptom',
+          context: context || null
+        }, {
+          timeout: 30000, // 30 second timeout
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        break; // Success, exit retry loop
+      } catch (axiosError) {
+        retryCount++;
+        console.error(`ML service attempt ${retryCount} failed:`, axiosError.message);
+        
+        if (retryCount === maxRetries) {
+          throw axiosError;
+        }
+        
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      }
+    }
 
     return res.json({
       response: mlResponse.data.response,
@@ -260,17 +290,31 @@ const getMLDiagnosis = async (req, res) => {
       step: mlResponse.data.step,
       context: mlResponse.data.context,
       completed: mlResponse.data.completed || false,
-      sessionId
+      sessionId: session_id
     });
 
   } catch (error) {
-    console.error('ML diagnosis error:', error);
-    if (error.response && error.response.data) {
-      return res.status(500).json({ error: error.response.data.error });
+    console.error('ML diagnosis proxy error:', error);
+    
+    // Provide specific error messages
+    if (error.code === 'ECONNREFUSED') {
+      return res.status(503).json({ 
+        error: 'ML diagnosis service is not available. Please ensure the Python service is running on port 8000.' 
+      });
     }
-    return res.status(500).json({ error: 'ML diagnosis service unavailable' });
+    
+    if (error.code === 'ETIMEDOUT') {
+      return res.status(504).json({ 
+        error: 'ML diagnosis service timed out. Please try again.' 
+      });
+    }
+
+    return res.status(500).json({ 
+      error: `ML diagnosis service error: ${error.message}` 
+    });
   }
 };
+
 
 // Mode 4: Internet + Book (Original askQuestion function)
 const askQuestion = async (req, res) => {
@@ -621,6 +665,6 @@ export {
   getInternetOnly,
   getBookOnly,
   getAllCombined,
-  getAllCombinedInternet, // NEW EXPORT
+  getAllCombinedInternet, 
   getMLDiagnosis
 };

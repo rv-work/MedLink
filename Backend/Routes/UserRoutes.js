@@ -1,5 +1,5 @@
 import express from 'express';
-import { UserDashboard  , UploadUserReportWeb2, UserReports, UserReport, ReportSummary, ReportMedicines, UploadUserReportWeb3, getCriticalData, UpdateUserReportWeb3} from '../Controllers/UserController.js';
+import { UserDashboard  , UploadUserReportWeb2, UserReports, UserReport, ReportSummary, ReportMedicines, UploadUserReportWeb3, getCriticalData, UpdateUserReportWeb3, PleaseHelp} from '../Controllers/UserController.js';
 import { VerifyToken } from '../Middleware/Verify.js';
 import { uploadReportFiles } from '../Middleware/Multer.js';
 
@@ -35,7 +35,7 @@ userRouter.get('/reports', VerifyToken, UserReports);
 userRouter.get('/reports/:id', VerifyToken, UserReport);
 userRouter.get('/report-summary', VerifyToken, ReportSummary);
 userRouter.post('/report-medicines', VerifyToken, ReportMedicines);
-userRouter.post('/please-help', VerifyToken, ReportMedicines);
+userRouter.post('/please-help', VerifyToken, PleaseHelp);
 
 
 userRouter.get('/:userId', getCriticalData);

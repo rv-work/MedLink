@@ -1280,12 +1280,11 @@ export const getCriticalData = async (req, res) => {
 
 export const PleaseHelp = async (req, res) => {
   try {
-    const client = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
-    const twilioWhatsApp = process.env.TWILIO_WHATSAPP_NUMBER; // must be like "whatsapp:+14155238886"
-    const twilioPhone = process.env.TWILIO_PHONE_NUMBER; // must be a verified Twilio phone number
+   const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+   const twilioWhatsApp = process.env.TWILIO_WHATSAPP_NUMBER; 
+   const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
+
+
     const user = req.user;
     const { latitude, longitude, timestamp } = req.body;
 
@@ -1296,7 +1295,6 @@ export const PleaseHelp = async (req, res) => {
       });
     }
 
-    // Create emergency message
     const emergencyMessage = `🚨 EMERGENCY ALERT!
     
 ${user.name || "User"} may need immediate assistance!
@@ -1309,26 +1307,28 @@ This is an automatic accident detection alert. Please check on them immediately 
 
 - MediCare Emergency System`;
 
-    // Fetch all emergency contacts of user
-    const contacts = await EmergencyContact.find({ owner: user._id });
+    // // Fetch all emergency contacts of user
+    // const contacts = await EmergencyContact.find({ owner: user._id });
 
-    if (!contacts || contacts.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No emergency contacts configured",
-      });
-    }
+    // if (!contacts || contacts.length === 0) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "No emergency contacts configured",
+    //   });
+    // }
 
     const results = [];
 
-    // normalize number => +91XXXXXXXXXX (remove spaces/dashes)
-    const normalizePhone = (phone) =>
-      phone.replace(/\D/g, "").replace(/^91/, "+91").replace(/^0/, "+91");
+    // // normalize number => +91XXXXXXXXXX (remove spaces/dashes)
+    // const normalizePhone = (phone) =>
+    //   phone.replace(/\D/g, "").replace(/^91/, "+91").replace(/^0/, "+91");
 
-    for (const contact of contacts) {
-      const phone = normalizePhone(contact.phone);
+    // for (const contact of contacts) {
+    //   const phone = normalizePhone(contact.phone);
 
       // ✅ SMS
+
+      const phone = "+918957553773"
       try {
         const sms = await client.messages.create({
           body: emergencyMessage,
@@ -1406,7 +1406,7 @@ This is an automatic accident detection alert. Please check on them immediately 
           error: error.message,
         });
       }
-    }
+    
 
     // Final response
     res.status(200).json({

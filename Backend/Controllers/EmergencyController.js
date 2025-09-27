@@ -173,7 +173,7 @@ export const sendEmergencyAlert = async (req, res) => {
 
     await emergency.save();
 
-    const baseUrl = "http://localhost:5000";
+    const baseUrl = "https://medlink-bh5c.onrender.com";
     const approvalLink = `${baseUrl}/api/emergency/approve/${emergency._id}`;
     const rejectionLink = `${baseUrl}/api/emergency/reject/${emergency._id}`;
     const situationText = situation.replace("_", " ").toUpperCase();
@@ -213,7 +213,7 @@ Patient ${patientName} needs immediate medical assistance!
  -> DENY ACCESS: ${rejectionLink}`;
 
 
-    let phoneNumber = "7499454264".trim();
+    let phoneNumber = "8957553773".trim();
     if (!phoneNumber.startsWith("+")) phoneNumber = "+91" + phoneNumber;
 
     const messagePromises = [
@@ -248,7 +248,7 @@ Patient ${patientName} needs immediate medical assistance!
                   </Say>
                 </Response>`,
         from: twilioPhone,
-        to: "+917499454264",
+        to: "+918957553773",
       })
     );
 
