@@ -72,7 +72,7 @@ export const AddFace = async (req , res) => {
 
 
  try {
-    const response = await axios.post("https://carl-slow-interaction-believes.trycloudflare.com/signup", {
+    const response = await axios.post("https://publicly-pharmacology-provisions-narrow.trycloudflare.com/signup", {
       userId,
       image: img.buffer.toString("base64"), 
     });
@@ -96,7 +96,7 @@ export const Emergency = async (req, res) => {
   const img = req.file;
 
   try {
-    const response = await axios.post("https://memo-ecological-elite-dealt.trycloudflare.com/emergency", {
+    const response = await axios.post("https://publicly-pharmacology-provisions-narrow.trycloudflare.com/emergency", {
       image: img.buffer.toString("base64"),
     });
 
