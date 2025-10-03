@@ -32,6 +32,13 @@ import AddMedicine from "./pages/AddMedicine";
 import SearchMedicines from "./pages/SearchMedicines";
 import VideoCall from "./pages/VideoCall";
 
+// Blood Donation Components
+import CommunityBloodPage from "./pages/CommunityBloodPage";
+import AllBloodRequests from "./pages/AllBloodRequests";
+import MyBloodRequests from "./pages/MyBloodRequests";
+import CreateBloodRequest from "./pages/CreateBloodRequest";
+import DonorDetailsUpdate from "./pages/DonorDetailsUpdate";
+
 function App() {
   return (
     <>
@@ -89,6 +96,16 @@ function App() {
         <Route path="/clinic/medicine/search" element={<SearchMedicines />} />
 
         <Route path="/videocall" element={<VideoCall />} />
+
+        {/* Blood Donation Routes */}
+        <Route path="/blood/community" element={<CommunityBloodPage />} />
+        <Route path="/blood/requests/all" element={<AllBloodRequests />} />
+        <Route path="/blood/requests/my" element={<MyBloodRequests />} />
+        <Route path="/blood/requests/create" element={<CreateBloodRequest />} />
+        <Route
+          path="/blood/donor-update/:requestId"
+          element={<DonorDetailsUpdate />}
+        />
       </Routes>
       <Footer />
     </>

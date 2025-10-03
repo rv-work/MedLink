@@ -30,7 +30,7 @@ export default function SimpleVideoCall() {
 
   // WebSocket connection
   const connectWebSocket = () => {
-    wsRef.current = new WebSocket("wss://medlink-bh5c.onrender.com/ws");
+    wsRef.current = new WebSocket("wss://localhost:5000/ws");
 
     wsRef.current.onopen = () => {
       // Join channel

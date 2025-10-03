@@ -256,7 +256,7 @@ const ChatWithReport = () => {
       setIsLoadingReport(true);
       try {
         const response = await fetch(
-          `https://medlink-bh5c.onrender.com/api/user/reports/${id}`,
+          `http://localhost:5000/api/user/reports/${id}`,
           {
             method: "GET",
             headers: { "Content-Type": "application/json" },

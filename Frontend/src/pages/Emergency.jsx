@@ -142,9 +142,10 @@ const EmergencySystem = () => {
 
       // Real API call for face matching
       const response = await fetch(
-        "https://medlink-bh5c.onrender.com/api/emergency/match-face",
+        "http://localhost:5000/api/emergency/match-face",
         {
           method: "POST",
+          credentials: "include",
           headers: {
             Authorization: `Bearer ${localStorage.getItem("authToken") || ""}`,
           },
@@ -269,7 +270,7 @@ const EmergencySystem = () => {
       }
 
       const response = await fetch(
-        `https://medlink-bh5c.onrender.com/api/emergency/send-alert/${selectedMatch.userId}`,
+        `http://localhost:5000/api/emergency/send-alert/${selectedMatch.userId}`,
         {
           method: "POST",
           headers: {
@@ -299,7 +300,7 @@ const EmergencySystem = () => {
   const checkApprovalStatus = async (emergencyId) => {
     try {
       const response = await fetch(
-        `https://medlink-bh5c.onrender.com/api/emergency/check-approval/${emergencyId}`,
+        `http://localhost:5000/api/emergency/check-approval/${emergencyId}`,
         {
           method: "GET",
           headers: {

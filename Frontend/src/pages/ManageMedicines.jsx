@@ -18,7 +18,7 @@ const ManageMedicines = () => {
   const fetchMedicines = async () => {
     try {
       const response = await fetch(
-        "https://medlink-bh5c.onrender.com/api/clinic/my-medicines",
+        "http://localhost:5000/api/clinic/my-medicines",
         {
           method: "GET",
           credentials: "include",
@@ -36,6 +36,7 @@ const ManageMedicines = () => {
       }
     } catch (error) {
       toast.error("Error fetching medicines");
+      console.log("error : ", error);
     } finally {
       setLoading(false);
     }
@@ -53,7 +54,7 @@ const ManageMedicines = () => {
   const handleUpdate = async (medicineId) => {
     try {
       const response = await fetch(
-        `https://medlink-bh5c.onrender.com/api/clinic/update-medicine/${medicineId}`,
+        `http://localhost:5000/api/clinic/update-medicine/${medicineId}`,
         {
           method: "PUT",
           credentials: "include",
@@ -77,6 +78,7 @@ const ManageMedicines = () => {
         toast.error(data.message);
       }
     } catch (error) {
+      console.log("error : ", error);
       toast.error("Failed to update medicine");
     }
   };

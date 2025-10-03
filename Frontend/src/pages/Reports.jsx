@@ -16,16 +16,13 @@ const BeautifulReportsDashboard = () => {
     const fetchReports = async () => {
       setLoading(true);
       try {
-        const res = await fetch(
-          "https://medlink-bh5c.onrender.com/api/user/reports",
-          {
-            method: "GET",
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        const res = await fetch("http://localhost:5000/api/user/reports", {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
 
         const data = await res.json();
 

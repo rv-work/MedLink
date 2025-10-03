@@ -38,7 +38,7 @@ const DoctorDashboard = () => {
     try {
       setLoading(true);
       const response = await axios.get(
-        "https://medlink-bh5c.onrender.com/api/doctor/get-dashboard/",
+        "http://localhost:5000/api/doctor/get-dashboard/",
         {
           withCredentials: true,
         }

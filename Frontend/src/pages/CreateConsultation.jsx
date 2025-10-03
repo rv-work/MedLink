@@ -40,7 +40,7 @@ const CreateConsultation = () => {
 
     try {
       const response = await fetch(
-        "https://medlink-bh5c.onrender.com/api/consultation/create",
+        "http://localhost:5000/api/consultation/create",
         {
           method: "POST",
           headers: {

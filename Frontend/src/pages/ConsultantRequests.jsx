@@ -39,7 +39,7 @@ const ConsultantRequests = () => {
       });
 
       const response = await fetch(
-        `https://medlink-bh5c.onrender.com/api/consultation/doctor/requests?${queryParams}`,
+        `http://localhost:5000/api/consultation/doctor/requests?${queryParams}`,
         {
           credentials: "include",
         }
@@ -62,7 +62,7 @@ const ConsultantRequests = () => {
   const handleAcceptConsultation = async (consultationId, patientId) => {
     try {
       const response = await fetch(
-        `https://medlink-bh5c.onrender.com/api/consultation/${consultationId}/accept`,
+        `http://localhost:5000/api/consultation/${consultationId}/accept`,
         {
           method: "PUT",
           headers: {

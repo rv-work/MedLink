@@ -52,7 +52,7 @@ const ReportInDetail = () => {
   const fetchReport = async () => {
     try {
       const response = await fetch(
-        `https://medlink-bh5c.onrender.com/api/user/reports/${id}`,
+        `http://localhost:5000/api/user/reports/${id}`,
         {
           method: "GET",
           headers: {
@@ -154,7 +154,7 @@ const ReportInDetail = () => {
       console.log("reportID : ", report._id);
 
       const response = await axios.get(
-        `https://medlink-bh5c.onrender.com/api/user/report-summary?reportId=${report._id}`,
+        `http://localhost:5000/api/user/report-summary?reportId=${report._id}`,
         {
           withCredentials: true,
         }

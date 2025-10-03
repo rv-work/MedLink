@@ -18,7 +18,7 @@ const DoctorLinkingFields = ({ formData, handleChange, setIsIdAvailable }) => {
       setDoctorCheckStatus("loading");
 
       const response = await fetch(
-        "https://medlink-bh5c.onrender.com/api/doctor/isavailable",
+        "http://localhost:5000/api/doctor/isavailable",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

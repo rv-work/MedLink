@@ -24,7 +24,7 @@ const WaitingForDoctor = () => {
   const fetchConsultationStatus = async () => {
     try {
       const response = await fetch(
-        `https://medlink-bh5c.onrender.com/api/consultation/${consultationId}`,
+        `http://localhost:5000/api/consultation/${consultationId}`,
         {
           credentials: "include",
         }
@@ -71,7 +71,7 @@ const WaitingForDoctor = () => {
 
     try {
       const response = await fetch(
-        `https://medlink-bh5c.onrender.com/api/consultation/${consultationId}/status`,
+        `http://localhost:5000/api/consultation/${consultationId}/status`,
         {
           method: "PUT",
           headers: {
