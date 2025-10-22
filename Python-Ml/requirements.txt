@@ -1,5 +1,6 @@
-Flask
-Flask-CORS
+flask
+flask-cors
 pandas
 numpy
-scikit-lear
+scikit-learn
+pickle-mixin

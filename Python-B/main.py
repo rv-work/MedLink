@@ -12,7 +12,6 @@ from deepface import DeepFace
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import PointStruct, Distance, VectorParams
 
-# Load environment variables
 load_dotenv()
 
 
@@ -21,10 +20,8 @@ QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "").split(",")
 
-# FastAPI app
 app = FastAPI()
 
-# CORS setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -32,7 +29,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Qdrant client
 client = QdrantClient(
     url=QDRANT_URL,
     api_key=QDRANT_API_KEY
