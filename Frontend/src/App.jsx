@@ -20,12 +20,6 @@ import DoctorDashboard from "./pages/DoctorDashboard";
 import DoctorAllTreatments from "./pages/DoctorAllTreatments";
 import DoctorTreatmentDetail from "./pages/DoctorTreatmentDeatial";
 
-// Consultation Components
-import CreateConsultation from "./pages/CreateConsultation";
-import ConsultantRequests from "./pages/ConsultantRequests";
-import WaitingForDoctor from "./pages/WaitingForDoctor";
-
-// Clinic Components
 import SellerRegister from "./pages/RegisterClinic";
 import ManageMedicines from "./pages/ManageMedicines";
 import AddMedicine from "./pages/AddMedicine";
@@ -70,24 +64,6 @@ function App() {
         <Route
           path="doctor/treatment/:treatmentId"
           element={<DoctorTreatmentDetail />}
-        />
-
-        {/* Patient Consultation Routes */}
-        <Route path="/request-consultant" element={<CreateConsultation />} />
-        <Route
-          path="/waiting-for-doctor/:consultationId"
-          element={<WaitingForDoctor />}
-        />
-        <Route
-          path="/patient/consultation/:consultationId"
-          element={<VideoCall />}
-        />
-
-        {/* Doctor Consultation Routes */}
-        <Route path="/doctor/consultants" element={<ConsultantRequests />} />
-        <Route
-          path="/doctor/consultation/:consultationId"
-          element={<VideoCall />}
         />
 
         <Route path="/clinic/register" element={<SellerRegister />} />

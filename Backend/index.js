@@ -9,7 +9,6 @@ import emergencyRouter from "./Routes/EmergencyRoutes.js";
 import medChatRouter from "./Routes/MedChatRoutes.js";
 import treatMentRouter from "./Routes/TreatMentRoutes.js";
 import doctorRouter from "./Routes/DocterRoutes.js";
-import ConsultationRoutes from "./Routes/ConsultationRoutes.js";
 import ClinicRouter from "./Routes/ClinicRoutes.js";
 
 import { connectDB } from "./DB/connectDB.js";
@@ -29,8 +28,6 @@ app.use(cors({
     'http://localhost:5173', 
     'http://localhost:3000',
     'http://0.0.0.0:5001',
-    // 'https://publicly-pharmacology-provisions-narrow.trycloudflare.com',
-    // "https://budgets-send-officer-blake.trycloudflare.com",
     'https://med-link-rvn.vercel.app',
     'https://med-link-rvn.vercel.app/',
     '*'
@@ -49,7 +46,7 @@ app.use("/api/chat", medChatRouter);
 app.use("/api/treatment", treatMentRouter);
 app.use("/api/doctor", doctorRouter);
 app.use("/api/clinic", ClinicRouter);
-app.use('/api/consultation', ConsultationRoutes);
+
 app.use('/api/blood', bloodRouter);
 
 app.get("/", (req, res) => {
