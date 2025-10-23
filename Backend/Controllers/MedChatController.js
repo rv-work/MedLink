@@ -259,7 +259,7 @@ const getMLDiagnosis = async (req, res) => {
 
     while (retryCount < maxRetries) {
       try {
-        mlResponse = await axios.post('http://localhost:8000/diagnose', {
+        mlResponse = await axios.post('https://medlink-chat.onrender.com/diagnose', {
           message: message,
           session_id: session_id,
           step: step || 'symptom',
