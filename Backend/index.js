@@ -25,12 +25,9 @@ app.use(cookieParser());
 
 app.use(cors({
   origin: [
-    'http://localhost:5173', 
-    'http://localhost:3000',
-    'http://0.0.0.0:5001',
     'https://med-link-rvn.vercel.app',
-    'https://med-link-rvn.vercel.app/',
-    '*'
+    'https://medlink-face.onrender.com',
+    'https://med-link-rvn.vercel.app'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
