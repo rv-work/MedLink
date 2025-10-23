@@ -17,53 +17,6 @@ const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
 
 
 
-
-
-
-
-
-
-// import FormData from "form-data";
-// import fs from "fs";
-
-
-// export const Emergency = async (req, res) => {
-//     const { faceDescriptor } = req.body;
-
-
-//   if (!faceDescriptor || faceDescriptor.length !== 128) {
-//     return res.status(400).json({ error: "Invalid descriptor" });
-//   }
-
-//   try {
-//     const users = await UserModel.find({ faceDescriptor: { $exists: true } });
-
-//     for (let user of users) {
-//       const distance = euclideanDistance(faceDescriptor, user.faceDescriptor);
-//       if (distance < 0.5) {
-//         return res.status(200).json({ name: user.name });
-//       }
-//     }
-//     return res.status(404).json({ message: "User not found" });
-//   } catch (err) {
-//     console.error("Emergency login error:", err);
-//     res.status(500).json({ error: "Server error" });
-//   }
-// }
-
-
-// function euclideanDistance(desc1, desc2) {
-//   if (!desc1 || !desc2 || desc1.length !== 128 || desc2.length !== 128) return Infinity;
-
-//   let sum = 0;
-//   for (let i = 0; i < 128; i++) {
-//     sum += Math.pow(desc1[i] - desc2[i], 2);
-//   }
-//   return Math.sqrt(sum);
-// }
-
-
-
 export const AddFace = async (req , res) => {
     const img = req.file;
     const userId = req.user._id;
@@ -72,7 +25,7 @@ export const AddFace = async (req , res) => {
 
 
  try {
-    const response = await axios.post("http://0.0.0.0:5001/signup", {
+    const response = await axios.post("https://medlink-face.onrender.com/signup", {
       userId,
       image: img.buffer.toString("base64"), 
     });
@@ -96,7 +49,7 @@ export const Emergency = async (req, res) => {
   const img = req.file;
 
   try {
-    const response = await axios.post("http://0.0.0.0:5001/emergency", {
+    const response = await axios.post("https://medlink-face.onrender.com/emergency", {
       image: img.buffer.toString("base64"),
     });
 

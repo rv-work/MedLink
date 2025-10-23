@@ -111,6 +111,8 @@ def emergency(payload: EmergencyPayload):
     print("matches:", matches)
     return {"status": "success", "matches": matches}
 
+
+
 @app.get("/all-data")
 def get_all_data():
     all_points = []
@@ -141,3 +143,19 @@ def get_all_data():
     ]
 
     return {"status": "success", "data": formatted_data}
+
+
+@app.get("/health")
+def health_check():
+    try:
+ 
+        client.get_collections()
+        qdrant_status = "connected"
+    except Exception as e:
+        qdrant_status = f"error: {str(e)}"
+
+    return {
+        "status": "ok",
+        "qdrant": qdrant_status,
+        "message": "Face recognition API is running 🚀"
+    }

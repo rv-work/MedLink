@@ -25,9 +25,9 @@ app.use(cookieParser());
 
 app.use(cors({
   origin: [
-    'https://med-link-rvn.vercel.app',
     'https://medlink-face.onrender.com',
-    'https://med-link-rvn.vercel.app'
+    'https://med-link-rvn.vercel.app',
+    'https://medlink-chat.onrender.com'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
