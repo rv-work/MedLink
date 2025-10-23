@@ -49,7 +49,7 @@ const DonorDetailsUpdate = () => {
   const fetchRequestDetails = async () => {
     try {
       const response = await fetch(
-        `http://localhost:5000/api/blood/requests/${requestId}`,
+        `https://medlink-bh5c.onrender.com/api/blood/requests/${requestId}`,
         {
           credentials: "include",
           headers: {
@@ -136,7 +136,7 @@ const DonorDetailsUpdate = () => {
       submitData.append("requestId", requestId);
 
       const response = await fetch(
-        "http://localhost:5000/api/blood/donations/add",
+        "https://medlink-bh5c.onrender.com/api/blood/donations/add",
         {
           method: "POST",
           headers: {

@@ -28,7 +28,7 @@ const TreatmentDashboard = () => {
   const [error, setError] = useState(null);
   const [todayMedicineLoading, setTodayMedicineLoading] = useState(false);
 
-  const API_BASE_URL = "http://localhost:5000/api/treatment";
+  const API_BASE_URL = "https://medlink-bh5c.onrender.com/api/treatment";
 
   const fetchActiveTreatments = async () => {
     setLoading(true);

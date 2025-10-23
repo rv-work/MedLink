@@ -37,7 +37,7 @@ const CommunityBloodPage = () => {
       });
 
       const response = await fetch(
-        `http://localhost:5000/api/blood/community/stats?${queryParams}`,
+        `https://medlink-bh5c.onrender.com/api/blood/community/stats?${queryParams}`,
         {
           credentials: "include",
           headers: {

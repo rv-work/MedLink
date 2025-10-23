@@ -111,7 +111,7 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         const response = await fetch(
-          "http://localhost:5000/api/user/dashboard",
+          "https://medlink-bh5c.onrender.com/api/user/dashboard",
           { method: "GET", credentials: "include" }
         );
         if (!response.ok)

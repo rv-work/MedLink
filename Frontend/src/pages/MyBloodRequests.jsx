@@ -28,7 +28,7 @@ const MyBloodRequests = () => {
     try {
       setLoading(true);
       const response = await fetch(
-        "http://localhost:5000/api/blood/requests/my",
+        "https://medlink-bh5c.onrender.com/api/blood/requests/my",
         {
           credentials: "include",
           headers: {
@@ -52,7 +52,7 @@ const MyBloodRequests = () => {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `http://localhost:5000/api/blood/requests/${requestId}/status`,
+        `https://medlink-bh5c.onrender.com/api/blood/requests/${requestId}/status`,
         {
           method: "PUT",
           headers: {
@@ -81,7 +81,7 @@ const MyBloodRequests = () => {
       try {
         const token = localStorage.getItem("token");
         const response = await fetch(
-          `http://localhost:5000/api/blood/requests/${requestId}`,
+          `https://medlink-bh5c.onrender.com/api/blood/requests/${requestId}`,
           {
             method: "DELETE",
             headers: {

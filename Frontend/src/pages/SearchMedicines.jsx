@@ -47,7 +47,7 @@ const SearchMedicines = () => {
       });
 
       const response = await fetch(
-        `http://localhost:5000/api/clinic/search-medicine?${params}`,
+        `https://medlink-bh5c.onrender.com/api/clinic/search-medicine?${params}`,
         {
           credentials: "include",
         }

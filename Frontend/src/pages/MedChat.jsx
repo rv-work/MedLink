@@ -205,7 +205,7 @@ const MedicalChatPage = () => {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/chat/ml-diagnosis",
+        "https://medlink-bh5c.onrender.com/api/chat/ml-diagnosis",
         {
           method: "POST",
           headers: {
@@ -295,7 +295,7 @@ const MedicalChatPage = () => {
           : "/all-combined"; // Mode 5 starts with book
 
       const response = await fetch(
-        `http://localhost:5000/api/chat${endpoint}`,
+        `https://medlink-bh5c.onrender.com/api/chat${endpoint}`,
         {
           method: "POST",
           headers: {
@@ -376,7 +376,7 @@ const MedicalChatPage = () => {
           currentMode === "all" ? "/all-combined-internet" : "/internet-answer";
 
         const response = await fetch(
-          `http://localhost:5000/api/chat${endpoint}`,
+          `https://medlink-bh5c.onrender.com/api/chat${endpoint}`,
           {
             method: "POST",
             headers: {

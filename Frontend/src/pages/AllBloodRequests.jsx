@@ -44,7 +44,7 @@ const AllBloodRequests = () => {
       });
 
       const response = await fetch(
-        `http://localhost:5000/api/blood/requests/all?${queryParams}`,
+        `https://medlink-bh5c.onrender.com/api/blood/requests/all?${queryParams}`,
         {
           credentials: "include",
           headers: {
@@ -69,7 +69,7 @@ const AllBloodRequests = () => {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `http://localhost:5000/api/blood/requests/${requestId}/respond`,
+        `https://medlink-bh5c.onrender.com/api/blood/requests/${requestId}/respond`,
         {
           method: "POST",
           headers: {
