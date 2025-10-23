@@ -9,7 +9,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from deepface import DeepFace
-from deepface.basemodels import SFace
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import PointStruct, Distance, VectorParams
 
@@ -23,9 +22,9 @@ QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
 
 # ==============================================
-# FastAPI App Setup
+# FastAPI setup
 # ==============================================
-app = FastAPI(title="MedLink Face API", version="1.0")
+app = FastAPI(title="MedLink Face API", version="1.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,7 +34,7 @@ app.add_middleware(
 )
 
 # ==============================================
-# Qdrant Client Setup
+# Qdrant setup
 # ==============================================
 client = QdrantClient(
     url=QDRANT_URL,
@@ -44,7 +43,6 @@ client = QdrantClient(
 
 COLLECTION_NAME = "face_vectors"
 
-# ✅ Create collection if missing
 try:
     if not client.collection_exists(collection_name=COLLECTION_NAME):
         client.create_collection(
@@ -55,18 +53,18 @@ except Exception as e:
     print("⚠️ Qdrant init error:", e)
 
 # ==============================================
-# Load lightweight DeepFace model once
+# Load SFace model once (Render-safe)
 # ==============================================
-print("🧠 Loading SFace model once (Render optimized)...")
+print("🧠 Loading lightweight SFace model...")
 try:
-    sface_model = SFace.loadModel()
+    sface_model = DeepFace.build_model("SFace")
     print("✅ SFace model loaded successfully.")
 except Exception as e:
-    print("❌ Error loading model:", e)
+    print("❌ Model load failed:", e)
     sface_model = None
 
 # ==============================================
-# Payload Models
+# Payload Schemas
 # ==============================================
 class SignupPayload(BaseModel):
     image: str
@@ -79,22 +77,20 @@ class EmergencyPayload(BaseModel):
 # Utility Functions
 # ==============================================
 def base64_to_image(b64_string: str) -> Image.Image:
-    """Decode base64 -> Pillow image (resized to save memory)"""
+    """Convert base64 to Pillow image, resized to reduce memory use."""
     try:
         image_data = base64.b64decode(b64_string)
         image = Image.open(io.BytesIO(image_data)).convert("RGB")
-        image = image.resize((512, 512))  # reduce memory footprint
+        image = image.resize((512, 512))
         return image
     except Exception as e:
         print("⚠️ base64_to_image error:", e)
         return None
 
 def get_face_embedding(image: Image.Image):
-    """Generate embedding using preloaded lightweight model"""
+    """Generate embedding from an image using preloaded SFace model."""
     if sface_model is None:
-        print("❌ Model not loaded")
         return None
-
     try:
         img_array = np.array(image)
         embedding = DeepFace.represent(
@@ -109,16 +105,15 @@ def get_face_embedding(image: Image.Image):
         return None
 
 # ==============================================
-# Routes
+# API Routes
 # ==============================================
 @app.post("/signup")
 def signup(payload: SignupPayload):
-    """Store user's face embedding"""
-    print(f"🧾 Signup request for: {payload.userId}")
+    print(f"🧾 Signup request for userId: {payload.userId}")
 
     image = base64_to_image(payload.image)
     if not image:
-        return {"status": "error", "message": "Invalid image"}
+        return {"status": "error", "message": "Invalid image data"}
 
     vector = get_face_embedding(image)
     if vector is None:
@@ -131,19 +126,18 @@ def signup(payload: SignupPayload):
             payload={"userId": payload.userId}
         )
         client.upsert(collection_name=COLLECTION_NAME, points=[point])
-        return {"status": "success", "message": "User embedding stored"}
+        return {"status": "success", "message": "User face embedding stored"}
     except Exception as e:
-        print("⚠️ signup DB error:", e)
+        print("⚠️ signup error:", e)
         return {"status": "error", "message": str(e)}
 
 @app.post("/emergency")
 def emergency(payload: EmergencyPayload):
-    """Compare emergency image with stored faces"""
-    print("🚨 Emergency face match request")
+    print("🚨 Emergency match request received")
 
     image = base64_to_image(payload.image)
     if not image:
-        return {"status": "error", "message": "Invalid image"}
+        return {"status": "error", "message": "Invalid image data"}
 
     vector = get_face_embedding(image)
     if vector is None:
@@ -155,21 +149,23 @@ def emergency(payload: EmergencyPayload):
             query_vector=vector,
             limit=5
         )
+
         matches = [
-            {"userId": point.payload.get("userId"), "score": point.score}
-            for point in results
+            {"userId": p.payload.get("userId"), "score": p.score}
+            for p in results
         ]
         return {"status": "success", "matches": matches}
     except Exception as e:
-        print("⚠️ emergency search error:", e)
+        print("⚠️ emergency error:", e)
         return {"status": "error", "message": str(e)}
 
 @app.get("/all-data")
 def get_all_data():
-    """Fetch all stored embeddings' userIds"""
+    """Fetch all stored embeddings with userIds."""
     try:
         all_points = []
         scroll_offset = None
+
         while True:
             response = client.scroll(
                 collection_name=COLLECTION_NAME,
@@ -183,18 +179,18 @@ def get_all_data():
                 break
             scroll_offset = response[1]
 
-        formatted_data = [
+        formatted = [
             {"id": p.id, "userId": p.payload.get("userId")}
             for p in all_points
         ]
-        return {"status": "success", "count": len(formatted_data), "data": formatted_data}
+        return {"status": "success", "count": len(formatted), "data": formatted}
     except Exception as e:
         print("⚠️ all-data error:", e)
         return {"status": "error", "message": str(e)}
 
 @app.get("/health")
-def health_check():
-    """Health endpoint"""
+def health():
+    """Health check for Render monitoring."""
     try:
         client.get_collections()
         qdrant_status = "connected"
@@ -203,13 +199,13 @@ def health_check():
 
     return {
         "status": "ok",
-        "qdrant": qdrant_status,
         "model_loaded": sface_model is not None,
-        "message": "Face recognition API is running 🚀"
+        "qdrant": qdrant_status,
+        "message": "Face recognition API is alive 🚀"
     }
 
 # ==============================================
-# Render Entry Point
+# Render Entrypoint
 # ==============================================
 if __name__ == "__main__":
     import uvicorn
