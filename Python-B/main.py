@@ -60,7 +60,7 @@ def get_face_embedding(image: Image.Image):
     try:
         embedding = DeepFace.represent(
             img_path=np.array(image),
-            model_name="ArcFace",
+             model_name="SFace",# Facenet512 , ArcFace
             enforce_detection=True
         )
         vector = embedding[0]["embedding"]
