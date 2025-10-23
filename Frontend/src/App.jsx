@@ -24,7 +24,6 @@ import SellerRegister from "./pages/RegisterClinic";
 import ManageMedicines from "./pages/ManageMedicines";
 import AddMedicine from "./pages/AddMedicine";
 import SearchMedicines from "./pages/SearchMedicines";
-import VideoCall from "./pages/VideoCall";
 
 // Blood Donation Components
 import CommunityBloodPage from "./pages/CommunityBloodPage";
@@ -70,8 +69,6 @@ function App() {
         <Route path="/clinic/my-medicines" element={<ManageMedicines />} />
         <Route path="/clinic/add-medicine" element={<AddMedicine />} />
         <Route path="/clinic/medicine/search" element={<SearchMedicines />} />
-
-        <Route path="/videocall" element={<VideoCall />} />
 
         {/* Blood Donation Routes */}
         <Route path="/blood/community" element={<CommunityBloodPage />} />

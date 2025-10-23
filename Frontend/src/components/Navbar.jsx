@@ -60,11 +60,7 @@ const ModernNavbar = () => {
         { name: "My Reports", href: "/reports", icon: FileText },
         { name: "Current Treatment", href: "/current", icon: Activity },
         { name: "Medical Chat", href: "/chat", icon: MessageCircle },
-        {
-          name: "Request Consultation",
-          href: "/request-consultant",
-          icon: Calendar,
-        },
+
         { name: "Enable Emergency", href: "/enable-emergency", icon: Shield },
       ],
     },
@@ -78,20 +74,9 @@ const ModernNavbar = () => {
           icon: Briefcase,
         },
         { name: "All Treatments", href: "/doctor-all-treatments", icon: Users },
-        {
-          name: "Consult Requests",
-          href: "/doctor/consultants",
-          icon: Calendar,
-        },
       ],
     },
-    {
-      section: "Consultation",
-      items: [
-        { name: "Video Call", href: "/videocall", icon: Video },
-        { name: "Request", href: "/request-consultant", icon: Calendar },
-      ],
-    },
+
     {
       section: "Clinic",
       items: [
@@ -398,7 +383,7 @@ const ModernNavbar = () => {
                           <span className="font-semibold text-blue-700">
                             {section.section}:{" "}
                           </span>
-                          {section.items.map((item, idx) => {
+                          {section.items.map((item) => {
                             const Icon = item.icon;
                             return (
                               <a
@@ -461,7 +446,6 @@ const ModernNavbar = () => {
                 </div>
               )}
 
-              {/* User Profile Section - Mobile */}
               {isLoggedIn && (
                 <div className="mt-2">
                   <button
