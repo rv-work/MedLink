@@ -153,6 +153,40 @@ const ModernLogin = () => {
               </p>
             </div>
 
+            {/* Testing Credentials Card */}
+            <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-lg border border-yellow-500/30 rounded-2xl p-4 mb-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="h-5 w-5 text-yellow-300" />
+                  <span className="text-white font-semibold">
+                    Test Credentials
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData({ email: "abc@gmail.com", password: "1234" });
+                    setErrors({});
+                    toast.success("Test credentials filled!");
+                  }}
+                  className="bg-white/20 hover:bg-white/30 text-white text-xs px-3 py-1 rounded-lg transition-all duration-300 flex items-center space-x-1"
+                >
+                  <span>Use These</span>
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between bg-white/10 rounded-lg px-3 py-2">
+                  <span className="text-white/70">Email:</span>
+                  <span className="text-white font-mono">abc@gmail.com</span>
+                </div>
+                <div className="flex items-center justify-between bg-white/10 rounded-lg px-3 py-2">
+                  <span className="text-white/70">Password:</span>
+                  <span className="text-white font-mono">1234</span>
+                </div>
+              </div>
+            </div>
+
             {/* Security features indicator */}
             <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 mb-6">
               <div className="flex items-center justify-between text-sm">
