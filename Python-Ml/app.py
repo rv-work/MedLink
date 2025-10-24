@@ -132,7 +132,8 @@ def sec_predict(symptoms_exp):
             if item in symptoms_dict_local:
                 input_vector[symptoms_dict_local[item]] = 1
 
-        return rf_clf.predict([input_vector])
+        return rf_clf.predict(pd.DataFrame([input_vector], columns=X.columns))
+
     except Exception as e:
         print(f"Error in sec_predict: {e}")
         return ["Unknown"]
@@ -330,7 +331,8 @@ def provide_final_diagnosis(session):
                 input_vector[symptoms_dict[symptom]] = 1
         
         try:
-            primary_prediction = clf.predict([input_vector])
+            primary_prediction = clf.predict(pd.DataFrame([input_vector], columns=x.columns))
+
             primary_disease = le.inverse_transform(primary_prediction)[0]
         except Exception as e:
             print(f"Error in primary prediction: {e}")
