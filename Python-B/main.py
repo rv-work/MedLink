@@ -47,7 +47,7 @@ try:
     if not client.collection_exists(collection_name=COLLECTION_NAME):
         client.create_collection(
             collection_name=COLLECTION_NAME,
-            vectors_config=VectorParams(size=512, distance=Distance.COSINE)
+            vectors_config=VectorParams(size=128, distance=Distance.COSINE)
         )
 except Exception as e:
     print("⚠️ Qdrant init error:", e)
@@ -96,7 +96,6 @@ def get_face_embedding(image: Image.Image):
         embedding = DeepFace.represent(
             img_path=img_array,
             model_name="SFace",
-            model=sface_model,
             enforce_detection=False
         )
         return embedding[0]["embedding"]
