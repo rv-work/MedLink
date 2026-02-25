@@ -20,7 +20,6 @@
 - [Tech Stack](#️-tech-stack)
 - [Installation & Setup](#️-installation--setup)
 - [Environment Variables](#-environment-variables)
-- [Project Structure](#-project-structure)
 - [License & Disclaimer](#️-license--disclaimer)
 
 ---
