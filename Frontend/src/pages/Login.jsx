@@ -148,9 +148,7 @@ const ModernLogin = () => {
               <h1 className="text-3xl font-bold text-white mb-2">
                 Welcome Back
               </h1>
-              <p className="text-white/80">
-                Sign in to your CareConnect account
-              </p>
+              <p className="text-white/80">Sign in to your MedLink account</p>
             </div>
 
             {/* Testing Credentials Card */}

@@ -88,7 +88,7 @@ const ModernFooter = () => {
               </div>
               <div>
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
-                  CareConnect
+                  MedLink
                 </h2>
                 <p className="text-xs text-blue-200 opacity-80">
                   Healthcare Platform
@@ -267,7 +267,7 @@ const ModernFooter = () => {
         <div className="border-t border-white/10 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <div className="flex items-center space-x-6 text-white/60 text-sm">
-              <p>© 2025 CareConnect Health Platform. All Rights Reserved.</p>
+              <p>© 2025 MedLink Health Platform. All Rights Reserved.</p>
             </div>
 
             <div className="flex items-center space-x-6 text-sm">

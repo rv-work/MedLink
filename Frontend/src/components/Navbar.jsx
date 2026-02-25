@@ -205,7 +205,7 @@ const ModernNavbar = () => {
                 </div>
               </div>
               <h1 className="text-base font-bold bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
-                CareConnect
+                MedLink
               </h1>
             </div>
 
