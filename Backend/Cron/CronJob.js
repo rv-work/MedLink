@@ -10,7 +10,6 @@ export const startDailySummaryJob = () => {
     try {
       console.log("🔍 Starting summary generation process");
       
-      // Date setup with detailed logging
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() );
 

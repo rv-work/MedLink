@@ -25,6 +25,7 @@ import {
   Search,
   Users,
   Briefcase,
+  Droplet,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -60,7 +61,6 @@ const ModernNavbar = () => {
         { name: "My Reports", href: "/reports", icon: FileText },
         { name: "Current Treatment", href: "/current", icon: Activity },
         { name: "Medical Chat", href: "/chat", icon: MessageCircle },
-
         { name: "Enable Emergency", href: "/enable-emergency", icon: Shield },
       ],
     },
@@ -76,7 +76,6 @@ const ModernNavbar = () => {
         { name: "All Treatments", href: "/doctor-all-treatments", icon: Users },
       ],
     },
-
     {
       section: "Clinic",
       items: [
@@ -84,6 +83,29 @@ const ModernNavbar = () => {
         { name: "Medicines", href: "/clinic/my-medicines", icon: Pill },
         { name: "Add Medicine", href: "/clinic/add-medicine", icon: Plus },
         { name: "Search", href: "/clinic/medicine/search", icon: Search },
+      ],
+    },
+
+    // ✅ BLOOD SECTION ADDED
+    {
+      section: "Blood",
+      items: [
+        { name: "Blood Community", href: "/blood/community", icon: Droplet },
+        {
+          name: "All Blood Requests",
+          href: "/blood/requests/all",
+          icon: Droplet,
+        },
+        {
+          name: "My Blood Requests",
+          href: "/blood/requests/my",
+          icon: Droplet,
+        },
+        {
+          name: "Create Blood Request",
+          href: "/blood/requests/create",
+          icon: Plus,
+        },
       ],
     },
   ];
@@ -96,7 +118,7 @@ const ModernNavbar = () => {
           method: "GET",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-        }
+        },
       );
 
       if (response.ok) {

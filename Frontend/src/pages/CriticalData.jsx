@@ -28,7 +28,7 @@ const CriticalData = () => {
       try {
         setLoading(true);
         const response = await fetch(
-          `https://medlink-bh5c.onrender.com/api/user/${userId}`
+          `https://medlink-bh5c.onrender.com/api/user/${userId}`,
         );
         const result = await response.json();
 
@@ -196,8 +196,8 @@ const CriticalData = () => {
                       allergy.severity === "Severe"
                         ? "bg-red-100 border-red-500"
                         : allergy.severity === "Moderate"
-                        ? "bg-orange-100 border-orange-500"
-                        : "bg-yellow-100 border-yellow-500"
+                          ? "bg-orange-100 border-orange-500"
+                          : "bg-yellow-100 border-yellow-500"
                     }`}
                   >
                     <div className="flex justify-between items-start mb-2">
@@ -209,8 +209,8 @@ const CriticalData = () => {
                           allergy.severity === "Severe"
                             ? "bg-red-500 text-white"
                             : allergy.severity === "Moderate"
-                            ? "bg-orange-500 text-white"
-                            : "bg-yellow-500 text-white"
+                              ? "bg-orange-500 text-white"
+                              : "bg-yellow-500 text-white"
                         }`}
                       >
                         {allergy.severity}
@@ -260,8 +260,8 @@ const CriticalData = () => {
                           condition.severityLevel === "severe"
                             ? "bg-red-500 text-white"
                             : condition.severityLevel === "moderate"
-                            ? "bg-orange-500 text-white"
-                            : "bg-green-500 text-white"
+                              ? "bg-orange-500 text-white"
+                              : "bg-green-500 text-white"
                         }`}
                       >
                         {condition.severityLevel}
@@ -352,7 +352,7 @@ const CriticalData = () => {
                 </p>
                 <p className="text-xs text-gray-500">
                   {new Date(
-                    latestVitals.bloodPressure.date
+                    latestVitals.bloodPressure.date,
                   ).toLocaleDateString()}
                 </p>
               </div>
@@ -494,8 +494,8 @@ const CriticalData = () => {
                         immunization.status === "Current"
                           ? "bg-green-50 border-green-200"
                           : immunization.status === "Overdue"
-                          ? "bg-red-50 border-red-200"
-                          : "bg-gray-50 border-gray-200"
+                            ? "bg-red-50 border-red-200"
+                            : "bg-gray-50 border-gray-200"
                       }`}
                     >
                       <div className="flex justify-between items-start mb-2">
@@ -507,8 +507,8 @@ const CriticalData = () => {
                             immunization.status === "Current"
                               ? "bg-green-500 text-white"
                               : immunization.status === "Overdue"
-                              ? "bg-red-500 text-white"
-                              : "bg-gray-500 text-white"
+                                ? "bg-red-500 text-white"
+                                : "bg-gray-500 text-white"
                           }`}
                         >
                           {immunization.status}
@@ -524,7 +524,7 @@ const CriticalData = () => {
                           <p>
                             <strong>Last Date:</strong>{" "}
                             {new Date(
-                              immunization.lastDate
+                              immunization.lastDate,
                             ).toLocaleDateString()}
                           </p>
                         )}
@@ -538,7 +538,7 @@ const CriticalData = () => {
                           >
                             <strong>Next Due:</strong>{" "}
                             {new Date(
-                              immunization.nextDue
+                              immunization.nextDue,
                             ).toLocaleDateString()}
                           </p>
                         )}

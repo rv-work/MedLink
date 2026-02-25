@@ -10,7 +10,6 @@ import {
   FiClock,
 } from "react-icons/fi";
 import { Link, useNavigate } from "react-router-dom";
-import Navbar from "../components/Navbar";
 
 const CreateBloodRequest = () => {
   const navigate = useNavigate();
@@ -90,7 +89,7 @@ const CreateBloodRequest = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(formData),
-        }
+        },
       );
 
       const data = await response.json();
@@ -116,8 +115,6 @@ const CreateBloodRequest = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-50">
-      <Navbar />
-
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <motion.div
@@ -239,7 +236,7 @@ const CreateBloodRequest = () => {
                         handleInputChange(
                           "hospital",
                           "contactNumber",
-                          e.target.value
+                          e.target.value,
                         )
                       }
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
@@ -302,7 +299,7 @@ const CreateBloodRequest = () => {
                         handleInputChange(
                           "patient",
                           "condition",
-                          e.target.value
+                          e.target.value,
                         )
                       }
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
@@ -343,7 +340,7 @@ const CreateBloodRequest = () => {
                           <option key={group} value={group}>
                             {group}
                           </option>
-                        )
+                        ),
                       )}
                     </select>
                   </div>
@@ -382,7 +379,7 @@ const CreateBloodRequest = () => {
                         handleInputChange(
                           "",
                           "unitsRequired",
-                          parseInt(e.target.value)
+                          parseInt(e.target.value),
                         )
                       }
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"

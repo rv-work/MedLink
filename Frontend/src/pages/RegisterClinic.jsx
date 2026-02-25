@@ -52,7 +52,7 @@ const SellerRegister = () => {
         },
         (error) => {
           toast.error("Error getting location");
-        }
+        },
       );
     } else {
       toast.error("Geolocation is not supported by this browser");
@@ -80,7 +80,7 @@ const SellerRegister = () => {
             },
           }),
           credentials: "include",
-        }
+        },
       );
 
       const data = await response.json();

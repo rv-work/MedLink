@@ -112,7 +112,7 @@ const TreatmentDashboard = () => {
       selectedTreatment,
       dayIndex,
       medicineIndex,
-      timingIndex
+      timingIndex,
     );
 
     setTodayMedicineLoading(true);
@@ -170,8 +170,8 @@ const TreatmentDashboard = () => {
           prev.map((treatment) =>
             treatment._id === updatedTreatment._id
               ? updatedTreatment
-              : treatment
-          )
+              : treatment,
+          ),
         );
 
         toast.success("Medicine marked as taken successfully");
@@ -571,7 +571,7 @@ const TreatmentDashboard = () => {
                       <div className="flex items-center">
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-medium border ${getConditionColor(
-                            note.condition
+                            note.condition,
                           )}`}
                         >
                           <span className="flex items-center">
@@ -794,7 +794,7 @@ const TreatmentDashboard = () => {
                                         markMedicineAsTaken(
                                           0,
                                           medIndex,
-                                          timingIndex
+                                          timingIndex,
                                         )
                                       }
                                       disabled={todayMedicineLoading}
@@ -895,7 +895,7 @@ const TreatmentDashboard = () => {
                   )}
 
                   {selectedTreatment.dailyNotes.some(
-                    (note) => note.condition === "better"
+                    (note) => note.condition === "better",
                   ) && (
                     <div className="flex items-center p-3 bg-green-50 border border-green-200 rounded-lg">
                       <TrendingUp className="w-6 h-6 text-green-600 mr-3" />

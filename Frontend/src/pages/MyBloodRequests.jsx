@@ -34,7 +34,7 @@ const MyBloodRequests = () => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -60,7 +60,7 @@ const MyBloodRequests = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ status: newStatus }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -87,7 +87,7 @@ const MyBloodRequests = () => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         const data = await response.json();
@@ -142,7 +142,6 @@ const MyBloodRequests = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-50">
-        <Navbar />
         <div className="flex items-center justify-center h-96">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
         </div>
@@ -152,8 +151,6 @@ const MyBloodRequests = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-50">
-      <Navbar />
-
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <motion.div
@@ -294,7 +291,7 @@ const MyBloodRequests = () => {
                     <div>
                       <span
                         className={`px-3 py-1 rounded-full text-sm ${getUrgencyColor(
-                          request.urgency
+                          request.urgency,
                         )}`}
                       >
                         {request.urgency}
@@ -303,7 +300,7 @@ const MyBloodRequests = () => {
                     <div>
                       <span
                         className={`px-3 py-1 rounded-full text-sm ${getStatusColor(
-                          request.status
+                          request.status,
                         )}`}
                       >
                         {request.status}
@@ -416,8 +413,8 @@ const MyBloodRequests = () => {
                                   response.status === "Donated"
                                     ? "bg-green-100 text-green-600"
                                     : response.status === "Confirmed"
-                                    ? "bg-blue-100 text-blue-600"
-                                    : "bg-yellow-100 text-yellow-600"
+                                      ? "bg-blue-100 text-blue-600"
+                                      : "bg-yellow-100 text-yellow-600"
                                 }`}
                               >
                                 {response.status}

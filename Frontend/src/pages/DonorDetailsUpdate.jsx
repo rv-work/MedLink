@@ -55,7 +55,7 @@ const DonorDetailsUpdate = () => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -143,7 +143,7 @@ const DonorDetailsUpdate = () => {
             Authorization: `Bearer ${token}`,
           },
           body: submitData,
-        }
+        },
       );
 
       const data = await response.json();
@@ -259,8 +259,8 @@ const DonorDetailsUpdate = () => {
                         response.status === "Donated"
                           ? "bg-green-100 text-green-600"
                           : response.status === "Confirmed"
-                          ? "bg-blue-100 text-blue-600"
-                          : "bg-yellow-100 text-yellow-600"
+                            ? "bg-blue-100 text-blue-600"
+                            : "bg-yellow-100 text-yellow-600"
                       }`}
                     >
                       {response.status}
@@ -276,7 +276,7 @@ const DonorDetailsUpdate = () => {
                     <p className="text-xs text-gray-500 mt-1">
                       Last donation:{" "}
                       {new Date(
-                        response.donorDetails.lastDonationDate
+                        response.donorDetails.lastDonationDate,
                       ).toLocaleDateString()}
                     </p>
                   )}
@@ -402,7 +402,7 @@ const DonorDetailsUpdate = () => {
                     handleInputChange(
                       "hemoglobin",
                       e.target.value,
-                      "medicalTests"
+                      "medicalTests",
                     )
                   }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
@@ -424,7 +424,7 @@ const DonorDetailsUpdate = () => {
                       handleInputChange(
                         "systolic",
                         e.target.value,
-                        "medicalTests"
+                        "medicalTests",
                       )
                     }
                     className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
@@ -439,7 +439,7 @@ const DonorDetailsUpdate = () => {
                       handleInputChange(
                         "diastolic",
                         e.target.value,
-                        "medicalTests"
+                        "medicalTests",
                       )
                     }
                     className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
@@ -479,7 +479,7 @@ const DonorDetailsUpdate = () => {
                     handleInputChange(
                       "temperature",
                       e.target.value,
-                      "medicalTests"
+                      "medicalTests",
                     )
                   }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
@@ -496,7 +496,7 @@ const DonorDetailsUpdate = () => {
                       handleInputChange(
                         "cleared",
                         e.target.checked,
-                        "medicalTests"
+                        "medicalTests",
                       )
                     }
                     className="w-5 h-5 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500"

@@ -41,7 +41,7 @@ const DoctorDashboard = () => {
         "https://medlink-bh5c.onrender.com/api/doctor/get-dashboard/",
         {
           withCredentials: true,
-        }
+        },
       );
       setDashboardData(response.data.data);
     } catch (err) {
@@ -288,7 +288,7 @@ const DoctorDashboard = () => {
                     <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
                       <div
                         className={`h-3 rounded-full bg-gradient-to-r ${getAdherenceColor(
-                          treatment.progress.adherencePercentage
+                          treatment.progress.adherencePercentage,
                         )} shadow-sm transition-all duration-500`}
                         style={{
                           width: `${treatment.progress.adherencePercentage}%`,
@@ -362,7 +362,7 @@ const DoctorDashboard = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div
                       className={`px-4 py-3 rounded-xl border-2 ${getConditionColor(
-                        summary.condition
+                        summary.condition,
                       )} shadow-sm`}
                     >
                       <div className="flex items-center gap-2">

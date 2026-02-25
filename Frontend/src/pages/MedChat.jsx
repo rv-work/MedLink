@@ -21,7 +21,7 @@ const MedChat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId] = useState(
     () =>
-      "session_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9)
+      "session_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9),
   );
   const [currentMode, setCurrentMode] = useState("internet");
   const [showModeSelector, setShowModeSelector] = useState(true);
@@ -97,8 +97,8 @@ const MedChat = () => {
             prev.map((msg) =>
               msg.id === messageId
                 ? { ...msg, content: fullContent.substring(0, index + 1) }
-                : msg
-            )
+                : msg,
+            ),
           );
           index++;
           typingIntervalRef.current = setTimeout(typeChar, speed);
@@ -134,7 +134,7 @@ const MedChat = () => {
     content,
     source = "chat",
     showPermission = false,
-    shouldType = false
+    shouldType = false,
   ) => {
     const newMessage = {
       id: Date.now() + Math.random(),
@@ -200,7 +200,7 @@ const MedChat = () => {
             step: mlStep,
             context: mlContext,
           }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -228,7 +228,7 @@ const MedChat = () => {
               "🙏 Thank you for using our ML Diagnosis service! Take care and consult a healthcare professional if needed.",
               "completion",
               false,
-              true
+              true,
             );
             setChatDisabled(true);
           }, 2000);
@@ -239,7 +239,7 @@ const MedChat = () => {
               "🎯 Diagnosis complete! You can now ask follow-up questions about your condition or general health topics. I have the context of your symptoms and diagnosis.",
               "transition",
               false,
-              true
+              true,
             );
             setIsInMLMode(false);
           }, 2000);
@@ -252,7 +252,7 @@ const MedChat = () => {
         `❌ Diagnosis error: ${error.message}. Please try again.`,
         "error",
         false,
-        true
+        true,
       );
     } finally {
       setIsLoading(false);
@@ -266,10 +266,10 @@ const MedChat = () => {
         currentMode === "internet"
           ? "/internet-only"
           : currentMode === "book"
-          ? "/book-only"
-          : currentMode === "internet_book"
-          ? "/ask"
-          : "/all-combined";
+            ? "/book-only"
+            : currentMode === "internet_book"
+              ? "/ask"
+              : "/all-combined";
 
       const response = await fetch(
         `https://medlink-bh5c.onrender.com/api/chat${endpoint}`,
@@ -284,7 +284,7 @@ const MedChat = () => {
             sessionId: sessionId,
             context: mlContext,
           }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -303,15 +303,18 @@ const MedChat = () => {
           setMlContext(data.mlContext);
         }
 
-        setTimeout(() => {
-          addMessage(
-            "system",
-            "🌐 Would you like me to search using internet knowledge for more comprehensive information?",
-            "permission",
-            true,
-            true
-          );
-        }, data.response.length * 20 + 500);
+        setTimeout(
+          () => {
+            addMessage(
+              "system",
+              "🌐 Would you like me to search using internet knowledge for more comprehensive information?",
+              "permission",
+              true,
+              true,
+            );
+          },
+          data.response.length * 20 + 500,
+        );
       }
     } catch (error) {
       console.error("Chat error:", error);
@@ -320,7 +323,7 @@ const MedChat = () => {
         `❌ Error: ${error.message}. Please try again.`,
         "error",
         false,
-        true
+        true,
       );
     } finally {
       setIsLoading(false);
@@ -370,7 +373,7 @@ const MedChat = () => {
               sessionId: sessionId,
               mlContext: mlContext,
             }),
-          }
+          },
         );
 
         const data = await response.json();
@@ -385,7 +388,7 @@ const MedChat = () => {
           "⚠️ This answer includes internet knowledge. Always consult healthcare professionals for medical decisions.",
           "warning",
           false,
-          true
+          true,
         );
       } else {
         addMessage(
@@ -393,7 +396,7 @@ const MedChat = () => {
           "Understood. Feel free to ask another question!",
           "chat",
           false,
-          true
+          true,
         );
       }
     } catch (error) {
@@ -496,8 +499,8 @@ const MedChat = () => {
             isUser
               ? "bg-blue-500 text-white rounded-br-md"
               : isSystem
-              ? "bg-yellow-100 border border-yellow-300 text-yellow-800 rounded-bl-md"
-              : "bg-white border border-gray-200 text-gray-800 rounded-bl-md"
+                ? "bg-yellow-100 border border-yellow-300 text-yellow-800 rounded-bl-md"
+                : "bg-white border border-gray-200 text-gray-800 rounded-bl-md"
           }`}
         >
           <div className="text-base leading-6 whitespace-pre-wrap">

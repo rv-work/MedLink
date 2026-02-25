@@ -137,8 +137,8 @@ const useReportForm = () => {
       const newFiles = Array.from(files).filter(
         (f) =>
           !formData.reportFiles.some(
-            (ex) => ex.name === f.name && ex.size === f.size
-          )
+            (ex) => ex.name === f.name && ex.size === f.size,
+          ),
       );
       setFormData((p) => ({
         ...p,
@@ -207,7 +207,7 @@ const useReportForm = () => {
 
       const textResult = await Tesseract.recognize(
         formData.medicineFile,
-        "eng"
+        "eng",
       );
       const extractedText = textResult.data.text;
 
@@ -218,7 +218,7 @@ const useReportForm = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ reportData: extractedText }),
           credentials: "include",
-        }
+        },
       );
 
       if (!res.ok) throw new Error("Extraction failed");
@@ -288,7 +288,7 @@ const useReportForm = () => {
           uploadData.append(key, JSON.stringify(formData[key]));
         else if (key === "reportFiles")
           formData.reportFiles.forEach((f) =>
-            uploadData.append("reportFiles", f)
+            uploadData.append("reportFiles", f),
           );
         else if (key === "medicineFile" && formData.medicineFile)
           uploadData.append("medicineFile", formData.medicineFile);
@@ -298,7 +298,7 @@ const useReportForm = () => {
       }
       uploadData.append(
         "dateOfReport",
-        new Date(formData.dateOfReport).toISOString()
+        new Date(formData.dateOfReport).toISOString(),
       );
 
       const res = await fetch(
@@ -307,7 +307,7 @@ const useReportForm = () => {
           method: "POST",
           body: uploadData,
           credentials: "include",
-        }
+        },
       );
 
       if (!res.ok) throw new Error("Upload failed");
@@ -357,7 +357,7 @@ const useReportForm = () => {
       const res = await axios.post(
         "https://medlink-bh5c.onrender.com/api/user/upload-report-web3",
         reportPayload,
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       const { reportId, userId } = res.data;
@@ -389,7 +389,7 @@ const useReportForm = () => {
         userId,
         fileUploads, // string[] memory _ipfsHashes
         fileNames, // string[] memory _fileNames
-        fileTypes // string[] memory _fileTypes
+        fileTypes, // string[] memory _fileTypes
       );
 
       const receipt = await tx.wait();
@@ -398,7 +398,7 @@ const useReportForm = () => {
       await axios.put(
         `https://medlink-bh5c.onrender.com/api/user/reports/${reportId}/blockchain`,
         { txHash: receipt.hash },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       setSuccess(true);

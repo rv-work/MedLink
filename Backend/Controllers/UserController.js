@@ -929,7 +929,7 @@ export const ReportMedicines = async (req, res) => {
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEYN);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const chat = model.startChat();
     const prompt = `
@@ -1009,7 +1009,7 @@ export const ReportSummary = async (req, res) => {
 
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEYN);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const chat = model.startChat();
 

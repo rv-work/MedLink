@@ -27,7 +27,7 @@ const MedicalChatPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId] = useState(
     () =>
-      "session_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9)
+      "session_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9),
   );
   const [currentMode, setCurrentMode] = useState("internet");
   const [showModeSelector, setShowModeSelector] = useState(true);
@@ -116,8 +116,8 @@ const MedicalChatPage = () => {
             prev.map((msg) =>
               msg.id === messageId
                 ? { ...msg, content: fullContent.substring(0, index + 1) }
-                : msg
-            )
+                : msg,
+            ),
           );
           index++;
           typingIntervalRef.current = setTimeout(typeChar, speed);
@@ -152,7 +152,7 @@ const MedicalChatPage = () => {
     content,
     source = "chat",
     showPermission = false,
-    shouldType = false
+    shouldType = false,
   ) => {
     const newMessage = {
       id: Date.now() + Math.random(),
@@ -218,7 +218,7 @@ const MedicalChatPage = () => {
             step: mlStep,
             context: mlContext,
           }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -249,7 +249,7 @@ const MedicalChatPage = () => {
               "🙏 Thank you for using our ML Diagnosis service! Take care and consult a healthcare professional if needed.",
               "completion",
               false,
-              true
+              true,
             );
             setChatDisabled(true);
           }, 2000);
@@ -261,7 +261,7 @@ const MedicalChatPage = () => {
               "🎯 Diagnosis complete! You can now ask follow-up questions about your condition or general health topics. I have the context of your symptoms and diagnosis.",
               "transition",
               false,
-              true
+              true,
             );
             setIsInMLMode(false);
           }, 2000);
@@ -274,7 +274,7 @@ const MedicalChatPage = () => {
         `❌ Diagnosis error: ${error.message}. Please try again.`,
         "error",
         false,
-        true
+        true,
       );
     } finally {
       setIsLoading(false);
@@ -289,10 +289,10 @@ const MedicalChatPage = () => {
         currentMode === "internet"
           ? "/internet-only"
           : currentMode === "book"
-          ? "/book-only"
-          : currentMode === "internet_book"
-          ? "/ask"
-          : "/all-combined"; // Mode 5 starts with book
+            ? "/book-only"
+            : currentMode === "internet_book"
+              ? "/ask"
+              : "/all-combined"; // Mode 5 starts with book
 
       const response = await fetch(
         `https://medlink-bh5c.onrender.com/api/chat${endpoint}`,
@@ -307,7 +307,7 @@ const MedicalChatPage = () => {
             sessionId: sessionId,
             context: mlContext,
           }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -327,15 +327,18 @@ const MedicalChatPage = () => {
           setMlContext(data.mlContext);
         }
 
-        setTimeout(() => {
-          addMessage(
-            "system",
-            "🌐 Would you like me to search using internet knowledge for more comprehensive information?",
-            "permission",
-            true,
-            true
-          );
-        }, data.response.length * 20 + 500);
+        setTimeout(
+          () => {
+            addMessage(
+              "system",
+              "🌐 Would you like me to search using internet knowledge for more comprehensive information?",
+              "permission",
+              true,
+              true,
+            );
+          },
+          data.response.length * 20 + 500,
+        );
       }
     } catch (error) {
       console.error("Chat error:", error);
@@ -344,7 +347,7 @@ const MedicalChatPage = () => {
         `❌ Error: ${error.message}. Please try again.`,
         "error",
         false,
-        true
+        true,
       );
     } finally {
       setIsLoading(false);
@@ -388,7 +391,7 @@ const MedicalChatPage = () => {
               sessionId: sessionId,
               mlContext: mlContext, // Pass ML context for Mode 5
             }),
-          }
+          },
         );
 
         const data = await response.json();
@@ -403,7 +406,7 @@ const MedicalChatPage = () => {
           "⚠️ This answer includes internet knowledge. Always consult healthcare professionals for medical decisions.",
           "warning",
           false,
-          true
+          true,
         );
       } else {
         addMessage(
@@ -411,7 +414,7 @@ const MedicalChatPage = () => {
           "Understood. Feel free to ask another question!",
           "chat",
           false,
-          true
+          true,
         );
       }
     } catch (error) {
@@ -558,15 +561,15 @@ const MedicalChatPage = () => {
                 message.type === "user"
                   ? "bg-blue-500 text-white"
                   : message.source === "system" ||
-                    message.source === "transition"
-                  ? "bg-green-50 text-green-800 border border-green-200"
-                  : message.source === "completion"
-                  ? "bg-purple-50 text-purple-800 border border-purple-200"
-                  : message.source === "warning"
-                  ? "bg-orange-50 text-orange-800 border border-orange-200"
-                  : message.source === "error"
-                  ? "bg-red-50 text-red-800 border border-red-200"
-                  : "bg-white text-gray-800 border border-gray-200 shadow-sm"
+                      message.source === "transition"
+                    ? "bg-green-50 text-green-800 border border-green-200"
+                    : message.source === "completion"
+                      ? "bg-purple-50 text-purple-800 border border-purple-200"
+                      : message.source === "warning"
+                        ? "bg-orange-50 text-orange-800 border border-orange-200"
+                        : message.source === "error"
+                          ? "bg-red-50 text-red-800 border border-red-200"
+                          : "bg-white text-gray-800 border border-gray-200 shadow-sm"
               }`}
             >
               {message.type === "bot" && (
@@ -643,8 +646,8 @@ const MedicalChatPage = () => {
                 chatDisabled
                   ? "Session ended - Thank you for using ML Diagnosis!"
                   : isInMLMode && !mlCompleted
-                  ? "Describe your symptoms or answer the questions..."
-                  : "Ask me anything about health and medicine..."
+                    ? "Describe your symptoms or answer the questions..."
+                    : "Ask me anything about health and medicine..."
               }
               className={`w-full px-4 py-3 pr-12 border border-gray-300 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-h-32 ${
                 chatDisabled ? "bg-gray-100 cursor-not-allowed" : ""

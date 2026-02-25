@@ -27,7 +27,8 @@ app.use(cors({
   origin: [
     'https://medlink-face.onrender.com',
     'https://med-link-rvn.vercel.app',
-    'https://medlink-chat.onrender.com',
+    'https://medlink-face.onrender.com',
+    'http://0.0.0.0:5001',
     'http://localhost:5173'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

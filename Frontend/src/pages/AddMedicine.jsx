@@ -286,7 +286,7 @@ const AddMedicine = () => {
           method: "POST",
           body: formDataToSend,
           credentials: "include",
-        }
+        },
       );
 
       const data = await response.json();
@@ -337,7 +337,7 @@ const AddMedicine = () => {
 
       // Filter out empty rows
       const validData = parsedData.data.filter(
-        (row) => row.name && row.name.trim() !== ""
+        (row) => row.name && row.name.trim() !== "",
       );
 
       if (validData.length === 0) {
@@ -407,7 +407,7 @@ const AddMedicine = () => {
       toast.success(
         `Extracted ${medicines.length} medicines and ${
           Object.keys(photoMap).length
-        } photos`
+        } photos`,
       );
     } catch (error) {
       console.error("File processing error:", error);
@@ -454,7 +454,7 @@ const AddMedicine = () => {
             `${medicine.name.toLowerCase()}.${medicine.photo.filename
               .split(".")
               .pop()}`,
-            { type: medicine.photo.file.type }
+            { type: medicine.photo.file.type },
           );
           formData.append("photos", photoFile);
         }
@@ -466,7 +466,7 @@ const AddMedicine = () => {
           method: "POST",
           body: formData,
           credentials: "include",
-        }
+        },
       );
 
       const data = await response.json();
@@ -509,7 +509,7 @@ const AddMedicine = () => {
 
   const editMedicine = (id, field, value) => {
     setExtractedData((prev) =>
-      prev.map((med) => (med.id === id ? { ...med, [field]: value } : med))
+      prev.map((med) => (med.id === id ? { ...med, [field]: value } : med)),
     );
   };
 
@@ -1357,8 +1357,8 @@ const AddMedicine = () => {
                                   !medicine.valid
                                     ? "bg-gradient-to-r from-red-50 to-pink-50 border-l-4 border-red-400"
                                     : index % 2 === 0
-                                    ? "bg-white"
-                                    : "bg-gray-50/50"
+                                      ? "bg-white"
+                                      : "bg-gray-50/50"
                                 }`}
                               >
                                 <td className="px-4 py-4">
@@ -1382,7 +1382,7 @@ const AddMedicine = () => {
                                       editMedicine(
                                         medicine.id,
                                         "name",
-                                        e.target.value
+                                        e.target.value,
                                       )
                                     }
                                     className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all duration-300"
@@ -1396,7 +1396,7 @@ const AddMedicine = () => {
                                       editMedicine(
                                         medicine.id,
                                         "brand",
-                                        e.target.value
+                                        e.target.value,
                                       )
                                     }
                                     className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all duration-300"
@@ -1410,7 +1410,7 @@ const AddMedicine = () => {
                                       editMedicine(
                                         medicine.id,
                                         "category",
-                                        e.target.value
+                                        e.target.value,
                                       )
                                     }
                                     className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all duration-300"
@@ -1425,7 +1425,7 @@ const AddMedicine = () => {
                                       editMedicine(
                                         medicine.id,
                                         "price",
-                                        parseFloat(e.target.value) || 0
+                                        parseFloat(e.target.value) || 0,
                                       )
                                     }
                                     className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all duration-300"
@@ -1439,7 +1439,7 @@ const AddMedicine = () => {
                                       editMedicine(
                                         medicine.id,
                                         "stock",
-                                        parseInt(e.target.value) || 0
+                                        parseInt(e.target.value) || 0,
                                       )
                                     }
                                     className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all duration-300"
@@ -1453,7 +1453,7 @@ const AddMedicine = () => {
                                       editMedicine(
                                         medicine.id,
                                         "expiryDate",
-                                        e.target.value
+                                        e.target.value,
                                       )
                                     }
                                     className="w-full px-3 py-2 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all duration-300"

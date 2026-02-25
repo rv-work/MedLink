@@ -24,7 +24,7 @@ const BeautifulReportsDashboard = () => {
             headers: {
               "Content-Type": "application/json",
             },
-          }
+          },
         );
 
         const data = await res.json();
@@ -53,7 +53,7 @@ const BeautifulReportsDashboard = () => {
 
             const mergedReports = parsed.map((onChain) => {
               const match = web3BackendReports.find(
-                (r) => r._id === onChain.reportId
+                (r) => r._id === onChain.reportId,
               );
 
               if (!match) {

@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
           {
             method: "GET",
             credentials: "include",
-          }
+          },
         );
 
         if (response.ok) {

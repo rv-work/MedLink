@@ -40,7 +40,7 @@ const EnableEmergency = () => {
 
       const response = await fetch(
         "https://medlink-bh5c.onrender.com/api/emergency/add-face",
-        { method: "POST", body: formData, credentials: "include" }
+        { method: "POST", body: formData, credentials: "include" },
       );
       const data = await response.json();
 

@@ -81,7 +81,7 @@ const ChatWithReport = () => {
         (voice) =>
           voice.name.includes("Google") ||
           voice.name.includes("Microsoft") ||
-          voice.lang.includes("en")
+          voice.lang.includes("en"),
       );
       if (preferredVoice) {
         utterance.voice = preferredVoice;
@@ -190,7 +190,7 @@ const ChatWithReport = () => {
     const singleMessage = `Hello ${
       reportData.patientName
     }! I'm your medical assistant. I've reviewed your report from ${new Date(
-      reportData.dateOfReport
+      reportData.dateOfReport,
     ).toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
@@ -261,7 +261,7 @@ const ChatWithReport = () => {
             method: "GET",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-          }
+          },
         );
         const data = await response.json();
         await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -296,8 +296,8 @@ Medical Report Context:
       .map(
         (med) =>
           `${med.name} - ${med.dose} ${med.frequency} (${med.timing.join(
-            ", "
-          )})`
+            ", ",
+          )})`,
       )
       .join(", ")}
 
@@ -306,7 +306,7 @@ ${messages
   .slice(-6)
   .filter((msg) => msg.type !== "typing")
   .map(
-    (msg) => `${msg.type === "user" ? "Patient" : "Assistant"}: ${msg.content}`
+    (msg) => `${msg.type === "user" ? "Patient" : "Assistant"}: ${msg.content}`,
   )
   .join("\n")}
 
@@ -328,10 +328,10 @@ Instructions:
 
   const callGeminiAPI = async (prompt) => {
     const genAI = new GoogleGenerativeAI(
-      "AIzaSyBBAKDLEpQH0GTA3MlSuOQtZqmDf3aCels"
+      "AIzaSyBBAKDLEpQH0GTA3MlSuOQtZqmDf3aCels",
     );
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash-latest",
+      model: "gemini-2.0-flash",
     });
     const chat = model.startChat();
 
@@ -344,8 +344,8 @@ Instructions:
   const handleTypingComplete = (messageId, content) => {
     setMessages((prev) =>
       prev.map((msg) =>
-        msg.id === messageId ? { ...msg, type: "bot", content } : msg
-      )
+        msg.id === messageId ? { ...msg, type: "bot", content } : msg,
+      ),
     );
   };
 

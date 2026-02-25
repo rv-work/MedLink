@@ -111,7 +111,7 @@ const EmergencySystem = () => {
     } catch (error) {
       console.error("Camera access denied:", error);
       setError(
-        "Camera access denied. Please allow camera permissions and try again."
+        "Camera access denied. Please allow camera permissions and try again.",
       );
     }
   };
@@ -134,7 +134,7 @@ const EmergencySystem = () => {
       ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
 
       const blob = await new Promise((resolve) =>
-        canvas.toBlob(resolve, "image/jpeg")
+        canvas.toBlob(resolve, "image/jpeg"),
       );
 
       const formData = new FormData();
@@ -150,7 +150,7 @@ const EmergencySystem = () => {
             Authorization: `Bearer ${localStorage.getItem("authToken") || ""}`,
           },
           body: formData,
-        }
+        },
       );
 
       if (!response.ok) {
@@ -161,7 +161,7 @@ const EmergencySystem = () => {
 
       if (data.success && data.matches && data.matches.length > 0) {
         setSuccessMessage(
-          `${data.matches.length} trusted contacts found! Loading emergency contacts...`
+          `${data.matches.length} trusted contacts found! Loading emergency contacts...`,
         );
         const stream = videoElement.srcObject;
         if (stream) stream.getTracks().forEach((track) => track.stop());
@@ -201,7 +201,7 @@ const EmergencySystem = () => {
           console.error("Error getting location:", error);
           setLoadingLocation(false);
           alert("Unable to get location. Please enable location services.");
-        }
+        },
       );
     } else {
       setLoadingLocation(false);
@@ -260,7 +260,7 @@ const EmergencySystem = () => {
       formData.append("description", emergencyFormData.description || "");
       formData.append(
         "coordinates",
-        JSON.stringify(emergencyFormData.coordinates)
+        JSON.stringify(emergencyFormData.coordinates),
       );
       formData.append("patientName", selectedMatch.name);
       formData.append("doctorName", doctorName);
@@ -277,7 +277,7 @@ const EmergencySystem = () => {
             Authorization: `Bearer ${localStorage.getItem("authToken") || ""}`,
           },
           body: formData,
-        }
+        },
       );
 
       const data = await response.json();
@@ -307,7 +307,7 @@ const EmergencySystem = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${localStorage.getItem("authToken") || ""}`,
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -325,7 +325,7 @@ const EmergencySystem = () => {
         alert(
           `Emergency request was rejected${
             data.rejectedBy ? " by " + data.rejectedBy : ""
-          }.`
+          }.`,
         );
       } else if (data.status === "pending") {
         // Continue checking after 5 seconds
@@ -720,10 +720,10 @@ const EmergencySystem = () => {
                           index === 0
                             ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
                             : index === 1
-                            ? "bg-gradient-to-r from-gray-400 to-gray-600"
-                            : index === 2
-                            ? "bg-gradient-to-r from-orange-400 to-orange-600"
-                            : "bg-gradient-to-r from-blue-500 to-blue-700"
+                              ? "bg-gradient-to-r from-gray-400 to-gray-600"
+                              : index === 2
+                                ? "bg-gradient-to-r from-orange-400 to-orange-600"
+                                : "bg-gradient-to-r from-blue-500 to-blue-700"
                         }
                       `}
                     >
@@ -762,7 +762,7 @@ const EmergencySystem = () => {
                     <div className="flex items-center space-x-4 mb-3">
                       <div
                         className={`px-3 py-1 rounded-full text-sm font-medium ${getScoreColor(
-                          match.score
+                          match.score,
                         )}`}
                       >
                         {getScoreLabel(match.score)}

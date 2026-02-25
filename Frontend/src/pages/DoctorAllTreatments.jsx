@@ -55,7 +55,7 @@ const DoctorAllTreatments = () => {
         {
           params,
           withCredentials: true,
-        }
+        },
       );
 
       setTreatments(response.data.data.treatments);
@@ -284,7 +284,7 @@ const DoctorAllTreatments = () => {
                         <div className="text-xs text-gray-500 bg-gradient-to-r from-gray-50 to-gray-100 px-3 py-1.5 rounded-lg inline-flex items-center gap-2 shadow-sm">
                           <Calendar className="w-3 h-3" />
                           {new Date(
-                            treatment.startDate
+                            treatment.startDate,
                           ).toLocaleDateString()} →{" "}
                           {new Date(treatment.endDate).toLocaleDateString()}
                         </div>
@@ -315,13 +315,13 @@ const DoctorAllTreatments = () => {
                             {treatment.progress.adherencePercentage}%
                           </span>
                           {getAdherenceIcon(
-                            treatment.progress.adherencePercentage
+                            treatment.progress.adherencePercentage,
                           )}
                         </div>
                         <div className="w-28 bg-gray-200 rounded-full h-2.5 shadow-inner">
                           <div
                             className={`h-2.5 rounded-full bg-gradient-to-r ${getAdherenceColor(
-                              treatment.progress.adherencePercentage
+                              treatment.progress.adherencePercentage,
                             )} shadow-sm transition-all duration-500`}
                             style={{
                               width: `${treatment.progress.adherencePercentage}%`,
@@ -398,14 +398,14 @@ const DoctorAllTreatments = () => {
                           {page}
                         </button>
                       );
-                    }
+                    },
                   )}
                 </div>
 
                 <button
                   onClick={() =>
                     fetchTreatments(
-                      Math.min(pagination.pages, pagination.page + 1)
+                      Math.min(pagination.pages, pagination.page + 1),
                     )
                   }
                   disabled={pagination.page === pagination.pages}

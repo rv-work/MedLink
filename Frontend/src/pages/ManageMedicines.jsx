@@ -25,7 +25,7 @@ const ManageMedicines = () => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -66,7 +66,7 @@ const ManageMedicines = () => {
             price: parseFloat(editForm.price),
             expiryDate: editForm.expiryDate,
           }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -294,8 +294,8 @@ const ManageMedicines = () => {
                                 medicine.stock < 10
                                   ? "text-red-600"
                                   : medicine.stock < 50
-                                  ? "text-yellow-600"
-                                  : "text-green-600"
+                                    ? "text-yellow-600"
+                                    : "text-green-600"
                               }`}
                             >
                               {medicine.stock}
@@ -340,7 +340,7 @@ const ManageMedicines = () => {
                           ) : (
                             <span className="text-gray-900 font-medium">
                               {new Date(
-                                medicine.expiryDate
+                                medicine.expiryDate,
                               ).toLocaleDateString()}
                             </span>
                           )}
@@ -352,8 +352,8 @@ const ManageMedicines = () => {
                               medicine.stock === 0
                                 ? "bg-gradient-to-r from-red-100 to-red-50 text-red-800 border-red-200"
                                 : medicine.stock < 10
-                                ? "bg-gradient-to-r from-yellow-100 to-yellow-50 text-yellow-800 border-yellow-200"
-                                : "bg-gradient-to-r from-green-100 to-green-50 text-green-800 border-green-200"
+                                  ? "bg-gradient-to-r from-yellow-100 to-yellow-50 text-yellow-800 border-yellow-200"
+                                  : "bg-gradient-to-r from-green-100 to-green-50 text-green-800 border-green-200"
                             }`}
                           >
                             <div
@@ -361,15 +361,15 @@ const ManageMedicines = () => {
                                 medicine.stock === 0
                                   ? "bg-red-500"
                                   : medicine.stock < 10
-                                  ? "bg-yellow-500"
-                                  : "bg-green-500"
+                                    ? "bg-yellow-500"
+                                    : "bg-green-500"
                               }`}
                             ></div>
                             {medicine.stock === 0
                               ? "Out of Stock"
                               : medicine.stock < 10
-                              ? "Low Stock"
-                              : "In Stock"}
+                                ? "Low Stock"
+                                : "In Stock"}
                           </span>
                         </td>
 

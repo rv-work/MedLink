@@ -24,7 +24,7 @@ const DoctorLinkingFields = ({ formData, handleChange, setIsIdAvailable }) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ doctorMedlinkId: doctorMedlinkId.trim() }),
           credentials: "include",
-        }
+        },
       );
 
       const result = await response.json();

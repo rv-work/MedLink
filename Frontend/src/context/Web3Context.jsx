@@ -72,7 +72,7 @@ export const Web3Provider = ({ children }) => {
             headers: { "Content-Type": "application/json" },
             credentials: "include",
             body: JSON.stringify({ address, signature }),
-          }
+          },
         );
 
         const data = await res.json();
@@ -85,7 +85,7 @@ export const Web3Provider = ({ children }) => {
           const contract = new ethers.Contract(
             contractAddress,
             contractABI,
-            signer
+            signer,
           );
           setContractInstance(contract);
           console.log("signer : ", signer);

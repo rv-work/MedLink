@@ -112,7 +112,7 @@ const Dashboard = () => {
       try {
         const response = await fetch(
           "https://medlink-bh5c.onrender.com/api/user/dashboard",
-          { method: "GET", credentials: "include" }
+          { method: "GET", credentials: "include" },
         );
         if (!response.ok)
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -578,10 +578,10 @@ const Dashboard = () => {
                         ? latestBMI.value < 18.5
                           ? "bg-blue-100 text-blue-700"
                           : latestBMI.value < 25
-                          ? "bg-green-100 text-green-700"
-                          : latestBMI.value < 30
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-red-100 text-red-700"
+                            ? "bg-green-100 text-green-700"
+                            : latestBMI.value < 30
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-red-100 text-red-700"
                         : "bg-gray-100 text-gray-600"
                     }`}
                   >
@@ -623,8 +623,8 @@ const Dashboard = () => {
                         ? latestBP.systolic < 120 && latestBP.diastolic < 80
                           ? "bg-green-100 text-green-700"
                           : latestBP.systolic < 140 && latestBP.diastolic < 90
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-red-100 text-red-700"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-red-100 text-red-700"
                         : "bg-gray-100 text-gray-600"
                     }`}
                   >
@@ -771,7 +771,7 @@ const Dashboard = () => {
                       userData?.heightRecords?.find(
                         (h) =>
                           new Date(h.date).toDateString() ===
-                          new Date(record.date).toDateString()
+                          new Date(record.date).toDateString(),
                       )?.value || latestHeight?.value,
                   }))}
                 >
@@ -1078,7 +1078,7 @@ const Dashboard = () => {
                       </div>
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-bold border ${getSeverityColor(
-                          allergy.severity
+                          allergy.severity,
                         )}`}
                       >
                         {allergy.severity}
@@ -1203,7 +1203,7 @@ const Dashboard = () => {
                         </div>
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-bold border ${getSeverityColor(
-                            condition.severityLevel
+                            condition.severityLevel,
                           )}`}
                         >
                           {condition.severityLevel}
@@ -1287,7 +1287,7 @@ const Dashboard = () => {
                                 {condition.precautions.map(
                                   (precaution, precIndex) => (
                                     <li key={precIndex}>{precaution}</li>
-                                  )
+                                  ),
                                 )}
                               </ul>
                             </div>
@@ -1301,7 +1301,7 @@ const Dashboard = () => {
                         </div>
                       )}
                     </div>
-                  )
+                  ),
                 )}
               </div>
             ) : (
@@ -1447,7 +1447,7 @@ const Dashboard = () => {
                         )}
                       </div>
                     </div>
-                  )
+                  ),
                 )}
               </div>
             ) : (
@@ -1498,7 +1498,7 @@ const Dashboard = () => {
                         </h4>
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(
-                            immunization.status
+                            immunization.status,
                           )}`}
                         >
                           {immunization.status}
@@ -1563,7 +1563,7 @@ const Dashboard = () => {
                         )}
                       </div>
                     </div>
-                  )
+                  ),
                 )}
               </div>
             ) : (
@@ -1828,8 +1828,8 @@ const Dashboard = () => {
                       ? latestBP.systolic < 120 && latestBP.diastolic < 80
                         ? "bg-green-100 text-green-700"
                         : latestBP.systolic < 140 && latestBP.diastolic < 90
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-red-100 text-red-700"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-red-100 text-red-700"
                       : "bg-gray-100 text-gray-600"
                   }`}
                 >
@@ -1867,8 +1867,8 @@ const Dashboard = () => {
                       ? latestBloodSugar.value < 100
                         ? "bg-green-100 text-green-700"
                         : latestBloodSugar.value < 126
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-red-100 text-red-700"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-red-100 text-red-700"
                       : "bg-gray-100 text-gray-600"
                   }`}
                 >
@@ -1876,8 +1876,8 @@ const Dashboard = () => {
                     ? latestBloodSugar.value < 100
                       ? "Normal"
                       : latestBloodSugar.value < 126
-                      ? "Elevated"
-                      : "High"
+                        ? "Elevated"
+                        : "High"
                     : "No data"}
                 </span>
                 <p className="text-xs text-gray-500">
@@ -1910,8 +1910,8 @@ const Dashboard = () => {
                       ? latestCholesterol.value < 200
                         ? "bg-green-100 text-green-700"
                         : latestCholesterol.value < 240
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-red-100 text-red-700"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-red-100 text-red-700"
                       : "bg-gray-100 text-gray-600"
                   }`}
                 >
@@ -1919,8 +1919,8 @@ const Dashboard = () => {
                     ? latestCholesterol.value < 200
                       ? "Good"
                       : latestCholesterol.value < 240
-                      ? "Borderline"
-                      : "High"
+                        ? "Borderline"
+                        : "High"
                     : "No data"}
                 </span>
                 <p className="text-xs text-gray-500">

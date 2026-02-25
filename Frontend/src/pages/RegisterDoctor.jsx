@@ -18,7 +18,7 @@ const RegisterDoctor = () => {
         "https://medlink-bh5c.onrender.com/api/doctor/check-medid",
         {
           doctorMedlinkId,
-        }
+        },
       );
       setAvailability(data.available ? "available" : "unavailable");
     } catch (error) {
@@ -42,7 +42,7 @@ const RegisterDoctor = () => {
         },
         {
           withCredentials: true,
-        }
+        },
       );
       alert(data.message);
     } catch (error) {

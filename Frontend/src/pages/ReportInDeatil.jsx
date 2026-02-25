@@ -59,7 +59,7 @@ const ReportInDetail = () => {
             "Content-Type": "application/json",
           },
           credentials: "include",
-        }
+        },
       );
 
       if (!response.ok) {
@@ -90,7 +90,7 @@ const ReportInDetail = () => {
       // Get report files from blockchain
       const reportFiles = await contractInstance.getReportFiles(
         userId,
-        reportId
+        reportId,
       );
 
       // Transform blockchain data to usable format
@@ -157,7 +157,7 @@ const ReportInDetail = () => {
         `https://medlink-bh5c.onrender.com/api/user/report-summary?reportId=${report._id}`,
         {
           withCredentials: true,
-        }
+        },
       );
 
       setSummaryResult(response.data.summary);
@@ -672,7 +672,7 @@ const ReportInDetail = () => {
                             <button
                               onClick={() =>
                                 setCurrentFileIndex(
-                                  Math.max(0, currentFileIndex - 1)
+                                  Math.max(0, currentFileIndex - 1),
                                 )
                               }
                               disabled={currentFileIndex === 0}
@@ -688,8 +688,8 @@ const ReportInDetail = () => {
                                 setCurrentFileIndex(
                                   Math.min(
                                     reportFiles.length - 1,
-                                    currentFileIndex + 1
-                                  )
+                                    currentFileIndex + 1,
+                                  ),
                                 )
                               }
                               disabled={
@@ -830,7 +830,7 @@ const ReportInDetail = () => {
                             <button
                               onClick={() =>
                                 setCurrentMedicineIndex(
-                                  Math.max(0, currentMedicineIndex - 1)
+                                  Math.max(0, currentMedicineIndex - 1),
                                 )
                               }
                               disabled={currentMedicineIndex === 0}
@@ -847,8 +847,8 @@ const ReportInDetail = () => {
                                 setCurrentMedicineIndex(
                                   Math.min(
                                     medicineFiles.length - 1,
-                                    currentMedicineIndex + 1
-                                  )
+                                    currentMedicineIndex + 1,
+                                  ),
                                 )
                               }
                               disabled={

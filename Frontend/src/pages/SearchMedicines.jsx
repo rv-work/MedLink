@@ -21,7 +21,7 @@ const SearchMedicines = () => {
         (error) => {
           toast.error("Error getting location");
           console.log("err : ", error);
-        }
+        },
       );
     } else {
       toast.error("Geolocation is not supported by this browser");
@@ -50,7 +50,7 @@ const SearchMedicines = () => {
         `https://medlink-bh5c.onrender.com/api/clinic/search-medicine?${params}`,
         {
           credentials: "include",
-        }
+        },
       );
       const data = await response.json();
 

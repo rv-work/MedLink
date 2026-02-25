@@ -43,7 +43,7 @@ const CommunityBloodPage = () => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -62,7 +62,7 @@ const CommunityBloodPage = () => {
   const getBloodGroupStats = (bloodGroup) => {
     return (
       communityData?.bloodGroupAvailability?.find(
-        (stat) => stat._id === bloodGroup
+        (stat) => stat._id === bloodGroup,
       ) || { totalUnits: 0, totalDonations: 0 }
     );
   };
@@ -76,7 +76,6 @@ const CommunityBloodPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-50">
-        <Navbar />
         <div className="flex items-center justify-center h-96">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
         </div>
@@ -86,8 +85,6 @@ const CommunityBloodPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-50">
-      <Navbar />
-
       <div className="container mx-auto px-4 py-8">
         {/* Header Section */}
         <motion.div

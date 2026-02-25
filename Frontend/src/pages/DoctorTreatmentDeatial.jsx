@@ -54,12 +54,12 @@ const DoctorTreatmentDetail = () => {
         `https://medlink-bh5c.onrender.com/api/doctor/get-treatment-detail/${treatmentId}`,
         {
           withCredentials: true,
-        }
+        },
       );
       setTreatmentData(response.data.data);
     } catch (err) {
       setError(
-        err.response?.data?.message || "Failed to fetch treatment details"
+        err.response?.data?.message || "Failed to fetch treatment details",
       );
     } finally {
       setLoading(false);
@@ -79,7 +79,7 @@ const DoctorTreatmentDetail = () => {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        }
+        },
       );
 
       // Refresh the data to show the new message
@@ -269,7 +269,7 @@ const DoctorTreatmentDetail = () => {
               <div className="w-full bg-gray-200 rounded-full h-3 mt-2 shadow-inner">
                 <div
                   className={`h-3 rounded-full bg-gradient-to-r ${getAdherenceColor(
-                    treatment.progress.adherencePercentage
+                    treatment.progress.adherencePercentage,
                   )} shadow-sm transition-all duration-500`}
                   style={{
                     width: `${treatment.progress.adherencePercentage}%`,
@@ -400,7 +400,7 @@ const DoctorTreatmentDetail = () => {
                     </div>
                     <div
                       className={`px-4 py-2 rounded-full border-2 shadow-lg flex items-center gap-2 ${getConditionColor(
-                        summary.condition
+                        summary.condition,
                       )}`}
                     >
                       {getConditionIcon(summary.condition)}

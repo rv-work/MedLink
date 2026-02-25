@@ -201,23 +201,23 @@ const MedicalSignup = () => {
       // Handle structured medical history data - these are already in proper format
       formDataToSend.append(
         "allergies",
-        JSON.stringify(formData.allergies || [])
+        JSON.stringify(formData.allergies || []),
       );
       formDataToSend.append(
         "chronicConditions",
-        JSON.stringify(formData.chronicConditions || [])
+        JSON.stringify(formData.chronicConditions || []),
       );
       formDataToSend.append(
         "surgicalHistory",
-        JSON.stringify(formData.surgicalHistory || [])
+        JSON.stringify(formData.surgicalHistory || []),
       );
       formDataToSend.append(
         "immunizations",
-        JSON.stringify(formData.immunizations || [])
+        JSON.stringify(formData.immunizations || []),
       );
       formDataToSend.append(
         "emergencyContacts",
-        JSON.stringify(formData.emergencyContacts || [])
+        JSON.stringify(formData.emergencyContacts || []),
       );
 
       if (capturedImage) {
@@ -234,7 +234,7 @@ const MedicalSignup = () => {
           method: "POST",
           credentials: "include",
           body: formDataToSend,
-        }
+        },
       );
 
       const data = await res.json();

@@ -39,7 +39,7 @@ const AllBloodRequests = () => {
         limit: 10,
         ...Object.fromEntries(
           // eslint-disable-next-line no-unused-vars
-          Object.entries(filters).filter(([_, value]) => value)
+          Object.entries(filters).filter(([_, value]) => value),
         ),
       });
 
@@ -50,7 +50,7 @@ const AllBloodRequests = () => {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -77,13 +77,13 @@ const AllBloodRequests = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ message: "I am interested in donating" }),
-        }
+        },
       );
 
       const data = await response.json();
       if (data.success) {
         alert(
-          "Response submitted successfully! The doctor will contact you soon."
+          "Response submitted successfully! The doctor will contact you soon.",
         );
         fetchBloodRequests();
       } else {
@@ -127,7 +127,6 @@ const AllBloodRequests = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-50">
-        <Navbar />
         <div className="flex items-center justify-center h-96">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
         </div>
@@ -137,8 +136,6 @@ const AllBloodRequests = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-50">
-      <Navbar />
-
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <motion.div
@@ -182,7 +179,7 @@ const AllBloodRequests = () => {
                   <option key={group} value={group}>
                     {group}
                   </option>
-                )
+                ),
               )}
             </select>
 
@@ -239,7 +236,7 @@ const AllBloodRequests = () => {
                   <div className="flex items-center space-x-4">
                     <div
                       className={`px-4 py-2 rounded-full font-bold text-lg ${getBloodGroupColor(
-                        request.bloodGroup
+                        request.bloodGroup,
                       )}`}
                     >
                       {request.bloodGroup}
@@ -247,7 +244,7 @@ const AllBloodRequests = () => {
                     <div>
                       <span
                         className={`px-3 py-1 rounded-full text-sm ${getUrgencyColor(
-                          request.urgency
+                          request.urgency,
                         )}`}
                       >
                         {request.urgency}
@@ -366,7 +363,7 @@ const AllBloodRequests = () => {
                     <div className="text-sm text-gray-600">
                       {
                         request.responses.filter(
-                          (r) => r.status === "Interested"
+                          (r) => r.status === "Interested",
                         ).length
                       }{" "}
                       interested donors
@@ -416,7 +413,7 @@ const AllBloodRequests = () => {
             <button
               onClick={() =>
                 setCurrentPage((prev) =>
-                  Math.min(prev + 1, pagination.totalPages)
+                  Math.min(prev + 1, pagination.totalPages),
                 )
               }
               disabled={!pagination.hasNext}
