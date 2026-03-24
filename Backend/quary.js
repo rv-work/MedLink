@@ -15,7 +15,7 @@ async function transformQuery(question){
     })  
 
     const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash",
         contents: History,
         config: {
             systemInstruction: `You are a query rewriting expert. Based on the provided chat history, rephrase the "Follow Up user Question" into a complete, standalone question that can be understood without the chat history.
@@ -61,7 +61,7 @@ async function getInternetAnswer(question) {
     });
     
     const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash",
         contents: internetHistory,
         config: {
             systemInstruction: `You are a Medical Expert with access to general medical knowledge.

@@ -203,7 +203,7 @@ npm install
 npm run dev
 ```
 
-> Runs on `http://localhost:5000`
+> Runs on `https://medlink-bh5c.onrender.com`
 
 ---
 
